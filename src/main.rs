@@ -1,7 +1,11 @@
-use std::{fs::File, io::read_to_string};
+use std::{collections::HashMap, fs::File, io::read_to_string};
 
-use crate::json::{JsonPathItem, build_json_structure, deduplicate_json_structure};
+use crate::{
+    faker::{ItemWithFaker, prompt_item_faker_type},
+    json::{build_json_structure, deduplicate_json_structure, update_json_structure},
+};
 
+mod faker;
 mod json;
 
 fn main() -> eyre::Result<()> {
@@ -10,75 +14,19 @@ fn main() -> eyre::Result<()> {
     let mut structure = build_json_structure(&parsed)?;
     deduplicate_json_structure(&mut structure);
 
-    dbg!(structure);
+    let mut faker_data = HashMap::new();
+    for item in structure {
+        let faker_type = prompt_item_faker_type(&item)?;
+        faker_data.insert(
+            item.path_key.hashed_excluding_index(),
+            ItemWithFaker { item, faker_type },
+        );
+    }
+
+    let output = update_json_structure(&parsed, &faker_data)?;
+    let serialized = serde_json::to_string_pretty(&output)?;
+
+    println!("{serialized}");
 
     Ok(())
 }
-
-enum FakerType {
-    // Type that applies no fake value
-    Leave,
-    Address,
-    Boolean,
-    PhoneNumber,
-    Date,
-    DateTime,
-    Duration,
-    Email,
-    FirstName,
-    LastName,
-    Name,
-    NameWithTitle,
-    Suffix,
-    Title,
-    Username,
-    Password,
-    Ipv4,
-    Ipv6,
-    FileName,
-    FileExtension,
-    FilePath,
-    Text,
-    Integer(FakerIntegerType),
-    Float(FakerFloatType),
-}
-
-enum FakerIntegerType {
-    I8,
-    U8,
-    I16,
-    U16,
-    I32,
-    U32,
-    I64,
-    U64,
-}
-
-enum FakerFloatType {
-    F32,
-    F64,
-}
-
-fn suggest_item_type(item: &JsonPathItem) -> Option<FakerType> {
-    match &item.value {
-        json::JsonValue::Number(number) => {
-            if number.is_f64() {
-                Some(FakerType::Float(FakerFloatType::F64))
-            } else if number.is_i64() {
-                Some(FakerType::Integer(FakerIntegerType::I64))
-            } else if number.is_u64() {
-                Some(FakerType::Integer(FakerIntegerType::U64))
-            } else {
-                Some(FakerType::Integer(FakerIntegerType::I64))
-            }
-        }
-        json::JsonValue::String(_value) => {
-            // TODO: Match item types to guess
-            Some(FakerType::Text)
-        }
-        json::JsonValue::Boolean(_) => Some(FakerType::Boolean),
-        json::JsonValue::Null => None,
-    }
-}
-
-fn prompt_structure_types() {}
