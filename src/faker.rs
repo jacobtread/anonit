@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use fake::{
     Fake,
-    faker::{boolean::en::Boolean, lorem::zh_tw::Paragraph},
+    faker::{boolean::en::Boolean, lorem::en::Paragraph},
 };
 use inquire::Select;
 

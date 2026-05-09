@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::faker::ItemWithFaker;
+use crate::{fake::FakeDataProducer, faker::ItemWithFaker};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum PathKeyItem {
@@ -205,7 +205,7 @@ fn walk_json_object(
 
 pub fn update_json_structure(
     value: &serde_json::Value,
-    mappings: &HashMap<u64, ItemWithFaker>,
+    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
 ) -> eyre::Result<serde_json::Value> {
     match value {
         serde_json::Value::Array(value) => walk_json_array_update(value, None, mappings),
@@ -217,7 +217,7 @@ pub fn update_json_structure(
 pub fn walk_json_field_update(
     value: &serde_json::Value,
     key: Arc<PathKey>,
-    mappings: &HashMap<u64, ItemWithFaker>,
+    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
 ) -> eyre::Result<serde_json::Value> {
     match value {
         serde_json::Value::Null
@@ -228,7 +228,7 @@ pub fn walk_json_field_update(
             let faker_data = mappings
                 .get(&hash)
                 .ok_or(eyre::eyre!("item was missing from structure mapping"))?;
-            let new_value = faker_data.faker_type.fake(value);
+            let new_value = faker_data.produce_fake(value);
             Ok(new_value)
         }
         serde_json::Value::Array(value) => walk_json_array_update(value, Some(key), mappings),
@@ -239,7 +239,7 @@ pub fn walk_json_field_update(
 fn walk_json_array_update(
     value: &[serde_json::Value],
     key: Option<Arc<PathKey>>,
-    mappings: &HashMap<u64, ItemWithFaker>,
+    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
 ) -> eyre::Result<serde_json::Value> {
     let mut values = Vec::new();
 
@@ -259,7 +259,7 @@ fn walk_json_array_update(
 fn walk_json_object_update(
     value: &serde_json::Map<String, serde_json::Value>,
     key: Option<Arc<PathKey>>,
-    mappings: &HashMap<u64, ItemWithFaker>,
+    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
 ) -> eyre::Result<serde_json::Value> {
     let mut map = serde_json::Map::new();
 
