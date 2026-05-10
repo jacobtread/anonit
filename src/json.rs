@@ -1,11 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{Debug, Display, Write},
+    fmt::{Debug, Display, Formatter, Write},
     hash::{DefaultHasher, Hash, Hasher},
     sync::Arc,
 };
 
-use crate::{fake::FakeDataProducer, faker::ItemWithFaker};
+use crate::fake::FakeDataProducer;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum PathKeyItem {
@@ -44,10 +44,12 @@ impl PathKey {
 
         self.item.hash_excluding_index(hasher);
     }
-}
 
-impl Display for PathKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn write_to_fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        ignore_index: bool,
+    ) -> std::fmt::Result {
         let mut parent: Option<&Arc<PathKey>> = self.parent.as_ref();
         let mut stack = Vec::new();
 
@@ -63,7 +65,13 @@ impl Display for PathKey {
 
         for (index, item) in stack.into_iter().enumerate() {
             match &item {
-                PathKeyItem::Index(index) => write!(f, "[{index}]")?,
+                PathKeyItem::Index(index) => {
+                    if ignore_index {
+                        write!(f, "[index]")?
+                    } else {
+                        write!(f, "[{index}]")?
+                    }
+                }
                 PathKeyItem::Key(key) => f.write_str(key)?,
             }
 
@@ -73,6 +81,20 @@ impl Display for PathKey {
         }
 
         Ok(())
+    }
+}
+
+struct IndexIgnoredPathKey(Arc<PathKey>);
+
+impl Display for IndexIgnoredPathKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.0.write_to_fmt(f, true)
+    }
+}
+
+impl Display for PathKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.write_to_fmt(f, false)
     }
 }
 
@@ -89,6 +111,7 @@ pub struct JsonPathItem {
 }
 
 #[derive(Debug, Clone)]
+#[allow(unused)]
 pub enum JsonValue {
     Number(serde_json::Number),
     String(String),
@@ -206,10 +229,16 @@ fn walk_json_object(
 pub fn update_json_structure(
     value: &serde_json::Value,
     mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
+    output_keys: &HashSet<u64>,
+    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
 ) -> eyre::Result<serde_json::Value> {
     match value {
-        serde_json::Value::Array(value) => walk_json_array_update(value, None, mappings),
-        serde_json::Value::Object(value) => walk_json_object_update(value, None, mappings),
+        serde_json::Value::Array(value) => {
+            walk_json_array_update(value, None, mappings, output_keys, output_mapping)
+        }
+        serde_json::Value::Object(value) => {
+            walk_json_object_update(value, None, mappings, output_keys, output_mapping)
+        }
         _ => eyre::bail!("json structure must start with either an array or an object"),
     }
 }
@@ -218,6 +247,8 @@ pub fn walk_json_field_update(
     value: &serde_json::Value,
     key: Arc<PathKey>,
     mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
+    output_keys: &HashSet<u64>,
+    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
 ) -> eyre::Result<serde_json::Value> {
     match value {
         serde_json::Value::Null
@@ -229,10 +260,22 @@ pub fn walk_json_field_update(
                 .get(&hash)
                 .ok_or(eyre::eyre!("item was missing from structure mapping"))?;
             let new_value = faker_data.produce_fake(value);
+
+            // Store the updated value
+            if output_keys.contains(&hash) {
+                let key = IndexIgnoredPathKey(key).to_string();
+                let mapping = output_mapping.entry(key).or_default();
+                mapping.insert(value.clone(), new_value.clone());
+            }
+
             Ok(new_value)
         }
-        serde_json::Value::Array(value) => walk_json_array_update(value, Some(key), mappings),
-        serde_json::Value::Object(value) => walk_json_object_update(value, Some(key), mappings),
+        serde_json::Value::Array(value) => {
+            walk_json_array_update(value, Some(key), mappings, output_keys, output_mapping)
+        }
+        serde_json::Value::Object(value) => {
+            walk_json_object_update(value, Some(key), mappings, output_keys, output_mapping)
+        }
     }
 }
 
@@ -240,6 +283,8 @@ fn walk_json_array_update(
     value: &[serde_json::Value],
     key: Option<Arc<PathKey>>,
     mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
+    output_keys: &HashSet<u64>,
+    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
 ) -> eyre::Result<serde_json::Value> {
     let mut values = Vec::new();
 
@@ -249,7 +294,7 @@ fn walk_json_array_update(
             item: PathKeyItem::Index(index),
         });
 
-        let value = walk_json_field_update(value, key, mappings)?;
+        let value = walk_json_field_update(value, key, mappings, output_keys, output_mapping)?;
         values.push(value)
     }
 
@@ -260,6 +305,8 @@ fn walk_json_object_update(
     value: &serde_json::Map<String, serde_json::Value>,
     key: Option<Arc<PathKey>>,
     mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
+    output_keys: &HashSet<u64>,
+    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
 ) -> eyre::Result<serde_json::Value> {
     let mut map = serde_json::Map::new();
 
@@ -269,7 +316,7 @@ fn walk_json_object_update(
             item: PathKeyItem::Key(object_key.to_string()),
         });
 
-        let new_value = walk_json_field_update(value, key, mappings)?;
+        let new_value = walk_json_field_update(value, key, mappings, output_keys, output_mapping)?;
         map.insert(object_key.clone(), new_value);
     }
 

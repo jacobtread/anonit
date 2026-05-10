@@ -28,6 +28,11 @@ pub trait FakeDataProducerFactory {
 
 pub trait FakeDataProducer {
     fn produce_fake(&self, original_value: &serde_json::Value) -> serde_json::Value;
+
+    /// Check whether the type can be used in output mappings
+    fn is_allowed_output(&self) -> bool {
+        false
+    }
 }
 
 struct IgnoreProducerFactory;
@@ -37,7 +42,7 @@ impl FakeDataProducerFactory for IgnoreProducerFactory {
         "Ignore".to_owned()
     }
 
-    fn prompt(&self, item: &JsonPathItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
+    fn prompt(&self, _item: &JsonPathItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
         Ok(Some(Box::new(IgnoreProducer)))
     }
 }

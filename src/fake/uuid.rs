@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use fake::{
     Fake,
     uuid::{UUIDv1, UUIDv3, UUIDv4, UUIDv5, UUIDv6, UUIDv7},
@@ -98,6 +96,10 @@ pub struct UuidFakeData {
 impl FakeDataProducer for UuidFakeData {
     fn produce_fake(&self, _original_value: &serde_json::Value) -> serde_json::Value {
         self.version.fake()
+    }
+
+    fn is_allowed_output(&self) -> bool {
+        true
     }
 }
 
