@@ -1,10 +1,11 @@
 use std::{fmt::Display, usize};
 
-use fake::{Fake, faker::lorem::en::Words};
+use fake::Fake;
 use inquire::Select;
 
 use crate::{
     fake::{FakeDataProducer, FakeDataProducerFactory},
+    json::JsonPathItem,
     prompt_utils::prompt_range,
 };
 
@@ -15,7 +16,10 @@ impl FakeDataProducerFactory for LoremIpsumFakeDataFactory {
         "Lorem Ipsum".to_owned()
     }
 
-    fn prompt(&self) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
+    fn prompt(
+        &self,
+        item: &JsonPathItem,
+    ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let unit_options = vec![
             LoremIpsumUnit::Words,
             LoremIpsumUnit::Sentences,
