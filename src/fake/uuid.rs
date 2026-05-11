@@ -3,6 +3,7 @@ use fake::{
     uuid::{UUIDv1, UUIDv3, UUIDv4, UUIDv5, UUIDv6, UUIDv7},
 };
 use inquire::Select;
+use serde::{Deserialize, Serialize};
 use strum::{Display, VariantArray};
 use uuid::Uuid;
 
@@ -51,7 +52,8 @@ impl FakeDataProducerFactory for UuidFakeDataFactory {
     }
 }
 
-#[derive(Display, VariantArray, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Display, VariantArray, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum UuidVersion {
     V1,
     V3,
@@ -89,10 +91,12 @@ impl UuidVersion {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UuidFakeData {
     version: UuidVersion,
 }
 
+#[typetag::serde(name = "uuid")]
 impl FakeDataProducer for UuidFakeData {
     fn produce_fake(&self, _original_value: &serde_json::Value) -> serde_json::Value {
         self.version.fake()

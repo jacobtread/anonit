@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use inquire::Select;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     fake::{lorem::LoremIpsumFakeDataFactory, uuid::UuidFakeDataFactory},
@@ -26,6 +27,7 @@ pub trait FakeDataProducerFactory {
     fn prompt(&self, item: &JsonPathItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>>;
 }
 
+#[typetag::serde(tag = "type")]
 pub trait FakeDataProducer {
     fn produce_fake(&self, original_value: &serde_json::Value) -> serde_json::Value;
 
@@ -47,8 +49,10 @@ impl FakeDataProducerFactory for IgnoreProducerFactory {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 struct IgnoreProducer;
 
+#[typetag::serde(name = "ignore")]
 impl FakeDataProducer for IgnoreProducer {
     fn produce_fake(&self, original_value: &serde_json::Value) -> serde_json::Value {
         original_value.clone()

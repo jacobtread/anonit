@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use fake::Fake;
 use inquire::Select;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     fake::{FakeDataProducer, FakeDataProducerFactory},
@@ -47,6 +48,7 @@ impl FakeDataProducerFactory for LoremIpsumFakeDataFactory {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoremIpsumFakeData {
     /// Unit to generate
     unit: LoremIpsumUnit,
@@ -54,7 +56,7 @@ pub struct LoremIpsumFakeData {
     range: std::ops::Range<usize>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 enum LoremIpsumUnit {
     Words,
     Sentences,
@@ -71,6 +73,7 @@ impl Display for LoremIpsumUnit {
     }
 }
 
+#[typetag::serde(name = "lorem")]
 impl FakeDataProducer for LoremIpsumFakeData {
     fn produce_fake(&self, _original_value: &serde_json::Value) -> serde_json::Value {
         match self.unit {
