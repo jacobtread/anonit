@@ -1,9 +1,22 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, ops::Add, path::PathBuf, str::FromStr};
 
 use inquire::{
     Text,
     validator::{ErrorMessage, StringValidator},
 };
+
+pub fn prompt_file_path(message: &str) -> eyre::Result<Option<PathBuf>> {
+    let value = match Text::new(message)
+        .with_validator(FilePathValidator)
+        .prompt_skippable()?
+    {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+
+    let path: PathBuf = value.parse()?;
+    Ok(Some(path))
+}
 
 pub fn prompt_range<E, T>(
     min_message: &str,
@@ -13,7 +26,15 @@ pub fn prompt_range<E, T>(
 ) -> eyre::Result<Option<std::ops::Range<T>>>
 where
     E: std::error::Error + Send + Sync + 'static,
-    T: Display + FromStr<Err = E> + PartialOrd + Ord + Copy + Clone,
+    T: Display
+        + FromStr<Err = E>
+        + PartialOrd
+        + Ord
+        + Copy
+        + Clone
+        + Add<Output = T>
+        + From<u8>
+        + Ord,
 {
     let min = match prompt_number(min_message, min, max)? {
         Some(value) => value,
@@ -25,7 +46,21 @@ where
         None => return Ok(None),
     };
 
-    Ok(Some(min..max))
+    Ok(inclusive_to_exclusive(min..=max))
+}
+
+fn inclusive_to_exclusive<T>(range: std::ops::RangeInclusive<T>) -> Option<std::ops::Range<T>>
+where
+    T: Copy + Add<Output = T> + From<u8> + Ord,
+{
+    let end = *range.end();
+    let next = end + T::from(1);
+
+    if next > end {
+        Some(*range.start()..next)
+    } else {
+        None
+    }
 }
 
 pub fn prompt_number<E, T>(message: &str, min: T, max: T) -> eyre::Result<Option<T>>
@@ -46,6 +81,31 @@ where
     let value = value.parse()?;
 
     Ok(Some(value))
+}
+
+#[derive(Clone)]
+struct FilePathValidator;
+
+impl StringValidator for FilePathValidator {
+    fn validate(
+        &self,
+        input: &str,
+    ) -> Result<inquire::validator::Validation, inquire::CustomUserError> {
+        let path: PathBuf = PathBuf::from_str(input)?;
+        if path.is_dir() {
+            return Ok(inquire::validator::Validation::Invalid(
+                ErrorMessage::Custom("path must be to a file".to_owned()),
+            ));
+        }
+
+        if !path.is_file() {
+            return Ok(inquire::validator::Validation::Invalid(
+                ErrorMessage::Custom("file does not exist".to_owned()),
+            ));
+        }
+
+        Ok(inquire::validator::Validation::Valid)
+    }
 }
 
 #[derive(Clone)]

@@ -98,8 +98,8 @@ pub struct UuidFakeData {
 
 #[typetag::serde(name = "uuid")]
 impl FakeDataProducer for UuidFakeData {
-    fn produce_fake(&self, _original_value: &serde_json::Value) -> serde_json::Value {
-        self.version.fake()
+    fn produce_fake(&self, _original_value: &serde_json::Value) -> eyre::Result<serde_json::Value> {
+        Ok(self.version.fake())
     }
 
     fn is_allowed_output(&self) -> bool {

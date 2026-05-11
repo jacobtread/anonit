@@ -6,6 +6,11 @@
     "thiserror",
     "chrono",
     "anonit",
-    "peekable"
+    "peekable",
+    "wordlist"
+  ],
+  "userWords": [
+    "FakeDataProducerFactory",
+    "impl FakeDataProducer for WordlistFakeData"
   ]
 }

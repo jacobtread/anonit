@@ -4,12 +4,16 @@ use inquire::Select;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    fake::{lorem::LoremIpsumFakeDataFactory, uuid::UuidFakeDataFactory},
+    fake::{
+        lorem::LoremIpsumFakeDataFactory, uuid::UuidFakeDataFactory,
+        wordlist::WordlistFakeDataFactory,
+    },
     json::JsonPathItem,
 };
 
 mod lorem;
 mod uuid;
+mod wordlist;
 
 pub trait FakeDataProducerFactory {
     /// Getter for the name of the producer
@@ -29,7 +33,7 @@ pub trait FakeDataProducerFactory {
 
 #[typetag::serde(tag = "type")]
 pub trait FakeDataProducer {
-    fn produce_fake(&self, original_value: &serde_json::Value) -> serde_json::Value;
+    fn produce_fake(&self, original_value: &serde_json::Value) -> eyre::Result<serde_json::Value>;
 
     /// Check whether the type can be used in output mappings
     fn is_allowed_output(&self) -> bool {
@@ -54,8 +58,8 @@ struct IgnoreProducer;
 
 #[typetag::serde(name = "ignore")]
 impl FakeDataProducer for IgnoreProducer {
-    fn produce_fake(&self, original_value: &serde_json::Value) -> serde_json::Value {
-        original_value.clone()
+    fn produce_fake(&self, original_value: &serde_json::Value) -> eyre::Result<serde_json::Value> {
+        Ok(original_value.clone())
     }
 }
 
@@ -64,6 +68,7 @@ pub fn fake_data_registry() -> Vec<Box<dyn FakeDataProducerFactory>> {
         Box::new(IgnoreProducerFactory),
         Box::new(LoremIpsumFakeDataFactory),
         Box::new(UuidFakeDataFactory),
+        Box::new(WordlistFakeDataFactory),
     ]
 }
 

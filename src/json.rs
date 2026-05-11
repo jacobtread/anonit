@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use eyre::Context;
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
@@ -330,7 +331,9 @@ pub fn walk_json_field_update(
                 .mappings
                 .get(&key)
                 .ok_or(eyre::eyre!("item was missing from structure mapping"))?;
-            let new_value = faker_data.produce_fake(value);
+            let new_value = faker_data
+                .produce_fake(value)
+                .context("failed to generate new value")?;
 
             // Store the updated value
             if data.output_keys.contains(&key) {

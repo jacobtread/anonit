@@ -75,8 +75,8 @@ impl Display for LoremIpsumUnit {
 
 #[typetag::serde(name = "lorem")]
 impl FakeDataProducer for LoremIpsumFakeData {
-    fn produce_fake(&self, _original_value: &serde_json::Value) -> serde_json::Value {
-        match self.unit {
+    fn produce_fake(&self, _original_value: &serde_json::Value) -> eyre::Result<serde_json::Value> {
+        Ok(match self.unit {
             LoremIpsumUnit::Words => {
                 let words = fake::faker::lorem::en::Words(self.range.clone());
                 let fake: Vec<String> = words.fake();
@@ -92,6 +92,6 @@ impl FakeDataProducer for LoremIpsumFakeData {
                 let fake = words.fake();
                 serde_json::Value::String(fake)
             }
-        }
+        })
     }
 }
