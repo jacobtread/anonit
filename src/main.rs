@@ -3,17 +3,19 @@ use std::{
     fs::File,
     io::Write,
     path::PathBuf,
+    sync::Arc,
 };
 
 use clap::Parser;
 use eyre::Context;
 use inquire::prompt_confirmation;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    fake::{fake_data_registry, prompt_fake_data_type},
+    fake::{FakeDataProducer, fake_data_registry, prompt_fake_data_type},
     json::{
-        OutputMappingMap, UpdateJsonData, build_json_structure, deduplicate_json_structure,
-        update_json_structure,
+        OutputMappingMap, PathKey, UpdateJsonData, build_json_structure,
+        deduplicate_json_structure, update_json_structure,
     },
 };
 
@@ -56,6 +58,12 @@ struct Args {
     config_output: Option<PathBuf>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Config {
+    mapping: HashMap<Arc<PathKey>, Box<dyn FakeDataProducer>>,
+    output: HashSet<Arc<PathKey>>,
+}
+
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
 
@@ -81,8 +89,7 @@ fn main() -> eyre::Result<()> {
                 .collect()
         });
 
-    // TODO: Config file
-    let _config: Option<serde_json::Value> = match args.config {
+    let config: Option<Config> = match args.config {
         Some(config) => {
             let file = File::open(config).context("failed to open input file")?;
             Some(serde_json::from_reader(file).context("failed to read / parse file")?)
@@ -95,31 +102,48 @@ fn main() -> eyre::Result<()> {
 
     let registry = fake_data_registry();
 
-    let mut faker_data = HashMap::new();
-    let mut output_keys = HashSet::new();
+    let config = match config {
+        Some(config) => config,
+        None => {
+            let mut faker_data = HashMap::new();
+            let mut output_keys = HashSet::new();
 
-    for item in structure {
-        let producer = prompt_fake_data_type(&registry, &item)?.ok_or(eyre::eyre!(
-            "todo: handle cancelling to allow the user to try again"
-        ))?;
+            for item in structure {
+                let producer = prompt_fake_data_type(&registry, &item)?.ok_or(eyre::eyre!(
+                    "todo: handle cancelling to allow the user to try again"
+                ))?;
 
-        if producer.is_allowed_output() {
-            let key = item.path_key.to_string();
-            if prompt_confirmation(format!(
-                "Do you want to create an output mapping for {key}?"
-            ))? {
-                output_keys.insert(item.path_key.clone());
+                if producer.is_allowed_output() {
+                    let key = item.path_key.to_string();
+                    if prompt_confirmation(format!(
+                        "Do you want to create an output mapping for {key}?"
+                    ))? {
+                        output_keys.insert(item.path_key.clone());
+                    }
+                }
+
+                faker_data.insert(item.path_key.clone(), producer);
+            }
+
+            Config {
+                mapping: faker_data,
+                output: output_keys,
             }
         }
-
-        faker_data.insert(item.path_key.clone(), producer);
-    }
+    };
 
     let output_mapping: OutputMappingMap = HashMap::new();
+    if let Some(config_output) = args.config_output {
+        let serialized_config = serde_json::to_string_pretty(&config)?;
+        let mut file = File::create(config_output).context("failed to open output file")?;
+        file.write_all(serialized_config.as_bytes())
+            .context("failed to write output")?;
+        file.flush().context("failed to flush file")?;
+    }
 
     let mut data = UpdateJsonData {
-        mappings: faker_data,
-        output_keys,
+        mappings: config.mapping,
+        output_keys: config.output,
         output_mapping,
         existing_output_mapping: flat_input_mapping_data,
     };

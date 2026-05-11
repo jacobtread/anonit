@@ -13,4 +13,5 @@ serde = { version = "1.0.228", features = ["rc"] }
 serde_json = { version = "1.0.149", features = ["preserve_order"] }
 strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2.0.18"
+typetag = "0.2.21"
 uuid = "1.23.1"
