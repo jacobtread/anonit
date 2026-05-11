@@ -12,13 +12,15 @@ use inquire::prompt_confirmation;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    data::key::PathKey,
     fake::{FakeDataProducer, fake_data_registry, prompt_fake_data_type},
     json::{
-        OutputMappingMap, PathKey, UpdateJsonData, build_json_structure,
+        JsonPathItem, OutputMappingMap, UpdateJsonData, build_json_structure,
         deduplicate_json_structure, update_json_structure,
     },
 };
 
+mod data;
 mod fake;
 mod json;
 mod prompt_utils;
@@ -65,6 +67,33 @@ pub struct Config {
     output: HashSet<Arc<PathKey>>,
 }
 
+/// Prompt the user to configure based on the structure
+fn prompt_config(structure: &[JsonPathItem]) -> eyre::Result<Config> {
+    let registry = fake_data_registry();
+    let mut mapping = HashMap::new();
+    let mut output = HashSet::new();
+
+    for item in structure {
+        let producer = prompt_fake_data_type(&registry, item)?.ok_or(eyre::eyre!(
+            "todo: handle cancelling to allow the user to try again"
+        ))?;
+
+        // For keys that support outputting a mapping prompt the user if they want to
+        if producer.is_allowed_output() {
+            let key = item.path_key.to_string();
+            if prompt_confirmation(format!(
+                "Do you want to create an output mapping for {key}?"
+            ))? {
+                output.insert(item.path_key.clone());
+            }
+        }
+
+        mapping.insert(item.path_key.clone(), producer);
+    }
+
+    Ok(Config { mapping, output })
+}
+
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
 
@@ -101,36 +130,9 @@ fn main() -> eyre::Result<()> {
     let mut structure = build_json_structure(&input_data)?;
     deduplicate_json_structure(&mut structure);
 
-    let registry = fake_data_registry();
-
     let config = match config {
         Some(config) => config,
-        None => {
-            let mut faker_data = HashMap::new();
-            let mut output_keys = HashSet::new();
-
-            for item in structure {
-                let producer = prompt_fake_data_type(&registry, &item)?.ok_or(eyre::eyre!(
-                    "todo: handle cancelling to allow the user to try again"
-                ))?;
-
-                if producer.is_allowed_output() {
-                    let key = item.path_key.to_string();
-                    if prompt_confirmation(format!(
-                        "Do you want to create an output mapping for {key}?"
-                    ))? {
-                        output_keys.insert(item.path_key.clone());
-                    }
-                }
-
-                faker_data.insert(item.path_key.clone(), producer);
-            }
-
-            Config {
-                mapping: faker_data,
-                output: output_keys,
-            }
-        }
+        None => prompt_config(&structure)?,
     };
 
     let output_mapping: OutputMappingMap = HashMap::new();

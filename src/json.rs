@@ -1,172 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{Debug, Display, Write},
-    hash::Hash,
-    str::FromStr,
+    fmt::Debug,
     sync::Arc,
 };
 
 use eyre::Context;
-use serde::{Deserialize, Deserializer, Serialize};
-use thiserror::Error;
 
-use crate::fake::FakeDataProducer;
-
-#[derive(Clone, Hash, PartialEq, Eq)]
-pub enum PathKeyItem {
-    Index,
-    Key(String),
-}
-
-#[derive(Clone, Hash, PartialEq, Eq)]
-pub struct PathKey {
-    /// The parent key
-    parent: Option<Arc<PathKey>>,
-    /// The current key segment
-    item: PathKeyItem,
-}
-
-impl Serialize for PathKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for PathKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        PathKey::from_str(&s).map_err(serde::de::Error::custom)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum PathKeyParseError {
-    #[error("path cannot be empty")]
-    EmptyPath,
-
-    #[error("invalid path with no segments")]
-    InvalidPath,
-
-    #[error("dangling escape sequence")]
-    DanglingEscape,
-
-    #[error("invalid escape sequence: {0}")]
-    InvalidEscape(char),
-}
-
-impl FromStr for PathKey {
-    type Err = PathKeyParseError;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        if input.is_empty() {
-            return Err(PathKeyParseError::EmptyPath);
-        }
-
-        let mut segments = Vec::<String>::new();
-        let mut current = String::new();
-
-        let mut chars = input.chars().peekable();
-
-        while let Some(ch) = chars.next() {
-            match ch {
-                // separator
-                '.' => {
-                    segments.push(std::mem::take(&mut current));
-                }
-
-                // escape sequence
-                '\\' => {
-                    let escaped = chars.next().ok_or(PathKeyParseError::DanglingEscape)?;
-
-                    match escaped {
-                        '\\' | '.' | '[' | ']' => {
-                            current.push(escaped);
-                        }
-                        escaped => {
-                            return Err(PathKeyParseError::InvalidEscape(escaped));
-                        }
-                    }
-                }
-
-                _ => current.push(ch),
-            }
-        }
-
-        segments.push(current);
-
-        let mut current: Option<Arc<PathKey>> = None;
-
-        for segment in segments {
-            let item = if segment == "[index]" {
-                PathKeyItem::Index
-            } else {
-                PathKeyItem::Key(segment)
-            };
-
-            current = Some(Arc::new(PathKey {
-                parent: current,
-                item,
-            }));
-        }
-
-        current
-            .map(|arc| (*arc).clone())
-            .ok_or(PathKeyParseError::InvalidPath)
-    }
-}
-
-impl Display for PathKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut stack = Vec::<&PathKeyItem>::new();
-
-        let mut current = Some(self);
-
-        while let Some(key) = current {
-            stack.push(&key.item);
-            current = key.parent.as_deref();
-        }
-
-        stack.reverse();
-
-        for (i, item) in stack.iter().enumerate() {
-            match item {
-                PathKeyItem::Index => {
-                    f.write_str("[index]")?;
-                }
-
-                PathKeyItem::Key(key) => {
-                    for ch in key.chars() {
-                        match ch {
-                            '\\' => f.write_str("\\\\")?,
-                            '.' => f.write_str("\\.")?,
-                            '[' => f.write_str("\\[")?,
-                            ']' => f.write_str("\\]")?,
-                            _ => f.write_char(ch)?,
-                        }
-                    }
-                }
-            }
-
-            if i + 1 < stack.len() {
-                f.write_char('.')?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl Debug for PathKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        <PathKey as Display>::fmt(self, f)
-    }
-}
+use crate::{
+    data::key::{PathKey, PathKeyItem},
+    fake::FakeDataProducer,
+};
 
 #[derive(Debug, Clone)]
 pub struct JsonPathItem {
@@ -260,10 +103,7 @@ fn walk_json_array(
     output: &mut Vec<JsonPathItem>,
 ) -> eyre::Result<()> {
     for value in value {
-        let key = Arc::new(PathKey {
-            parent: key.clone(),
-            item: PathKeyItem::Index,
-        });
+        let key = Arc::new(PathKey::new(key.clone(), PathKeyItem::Index));
 
         walk_json_field(value, key, output)?;
     }
@@ -277,10 +117,10 @@ fn walk_json_object(
     output: &mut Vec<JsonPathItem>,
 ) -> eyre::Result<()> {
     for (object_key, value) in value {
-        let key = Arc::new(PathKey {
-            parent: key.clone(),
-            item: PathKeyItem::Key(object_key.to_string()),
-        });
+        let key = Arc::new(PathKey::new(
+            key.clone(),
+            PathKeyItem::Key(object_key.to_string()),
+        ));
 
         walk_json_field(value, key, output)?;
     }
@@ -356,10 +196,7 @@ fn walk_json_array_update(
     let mut values = Vec::new();
 
     for value in value {
-        let key = Arc::new(PathKey {
-            parent: key.clone(),
-            item: PathKeyItem::Index,
-        });
+        let key = Arc::new(PathKey::new(key.clone(), PathKeyItem::Index));
 
         let value = walk_json_field_update(value, key, data)?;
         values.push(value)
@@ -376,10 +213,10 @@ fn walk_json_object_update(
     let mut map = serde_json::Map::new();
 
     for (object_key, value) in value {
-        let key = Arc::new(PathKey {
-            parent: key.clone(),
-            item: PathKeyItem::Key(object_key.to_string()),
-        });
+        let key = Arc::new(PathKey::new(
+            key.clone(),
+            PathKeyItem::Key(object_key.to_string()),
+        ));
 
         let new_value = walk_json_field_update(value, key, data)?;
         map.insert(object_key.clone(), new_value);
