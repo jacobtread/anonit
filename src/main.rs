@@ -42,14 +42,15 @@ struct Args {
     config: Option<PathBuf>,
 
     /// Optional output file to store the processed file
+    ///
+    /// Omitting an output file will print the output to
+    /// stdout
     #[arg(short, long)]
     output: Option<PathBuf>,
 
     /// Optional output file to store generated mappings from
     /// pre-redacted field values to the post redacted values
     /// for use with redacts that need to have consistent IDs
-    ///
-    /// Omitting an output file will use stdout
     #[arg(long)]
     output_mapping: Option<PathBuf>,
 
@@ -167,8 +168,6 @@ fn main() -> eyre::Result<()> {
         file.write_all(serialized_mapping.as_bytes())
             .context("failed to write output")?;
         file.flush().context("failed to flush file")?;
-    } else {
-        println!("{serialized_mapping}");
     }
 
     Ok(())
