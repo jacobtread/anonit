@@ -1,25 +1,20 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{Debug, Display, Formatter, Write},
-    hash::{DefaultHasher, Hash, Hasher},
+    fmt::{Debug, Display, Write},
+    hash::Hash,
+    str::FromStr,
     sync::Arc,
 };
+
+use serde::{Deserialize, Deserializer, Serialize};
+use thiserror::Error;
 
 use crate::fake::FakeDataProducer;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum PathKeyItem {
-    Index(usize),
+    Index,
     Key(String),
-}
-
-impl PathKeyItem {
-    fn hash_excluding_index<H: Hasher>(&self, hasher: &mut H) {
-        match self {
-            PathKeyItem::Index(_) => "index".hash(hasher),
-            PathKeyItem::Key(key) => key.hash(hasher),
-        }
-    }
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -30,71 +25,139 @@ pub struct PathKey {
     item: PathKeyItem,
 }
 
-impl PathKey {
-    pub fn hashed_excluding_index(&self) -> u64 {
-        let mut hasher = DefaultHasher::default();
-        self.hash_excluding_index(&mut hasher);
-        hasher.finish()
-    }
-
-    fn hash_excluding_index<H: Hasher>(&self, hasher: &mut H) {
-        if let Some(parent) = self.parent.as_ref() {
-            parent.hash_excluding_index(hasher);
-        }
-
-        self.item.hash_excluding_index(hasher);
-    }
-
-    fn write_to_fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-        ignore_index: bool,
-    ) -> std::fmt::Result {
-        let mut parent: Option<&Arc<PathKey>> = self.parent.as_ref();
-        let mut stack = Vec::new();
-
-        stack.push(&self.item);
-        while let Some(key) = parent {
-            stack.push(&key.item);
-            parent = key.parent.as_ref();
-        }
-
-        stack.reverse();
-
-        let stack_len = stack.len();
-
-        for (index, item) in stack.into_iter().enumerate() {
-            match &item {
-                PathKeyItem::Index(index) => {
-                    if ignore_index {
-                        write!(f, "[index]")?
-                    } else {
-                        write!(f, "[{index}]")?
-                    }
-                }
-                PathKeyItem::Key(key) => f.write_str(key)?,
-            }
-
-            if index < stack_len - 1 {
-                f.write_char('.')?;
-            }
-        }
-
-        Ok(())
+impl Serialize for PathKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
     }
 }
 
-struct IndexIgnoredPathKey(Arc<PathKey>);
+impl<'de> Deserialize<'de> for PathKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        PathKey::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
 
-impl Display for IndexIgnoredPathKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.write_to_fmt(f, true)
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum PathKeyParseError {
+    #[error("path cannot be empty")]
+    EmptyPath,
+
+    #[error("invalid path with no segments")]
+    InvalidPath,
+
+    #[error("dangling escape sequence")]
+    DanglingEscape,
+
+    #[error("invalid escape sequence: {0}")]
+    InvalidEscape(char),
+}
+
+impl FromStr for PathKey {
+    type Err = PathKeyParseError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        if input.is_empty() {
+            return Err(PathKeyParseError::EmptyPath);
+        }
+
+        let mut segments = Vec::<String>::new();
+        let mut current = String::new();
+
+        let mut chars = input.chars().peekable();
+
+        while let Some(ch) = chars.next() {
+            match ch {
+                // separator
+                '.' => {
+                    segments.push(std::mem::take(&mut current));
+                }
+
+                // escape sequence
+                '\\' => {
+                    let escaped = chars.next().ok_or(PathKeyParseError::DanglingEscape)?;
+
+                    match escaped {
+                        '\\' | '.' | '[' | ']' => {
+                            current.push(escaped);
+                        }
+                        escaped => {
+                            return Err(PathKeyParseError::InvalidEscape(escaped));
+                        }
+                    }
+                }
+
+                _ => current.push(ch),
+            }
+        }
+
+        segments.push(current);
+
+        let mut current: Option<Arc<PathKey>> = None;
+
+        for segment in segments {
+            let item = if segment == "[index]" {
+                PathKeyItem::Index
+            } else {
+                PathKeyItem::Key(segment)
+            };
+
+            current = Some(Arc::new(PathKey {
+                parent: current,
+                item,
+            }));
+        }
+
+        current
+            .map(|arc| (*arc).clone())
+            .ok_or(PathKeyParseError::InvalidPath)
     }
 }
 
 impl Display for PathKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.write_to_fmt(f, false)
+        let mut stack = Vec::<&PathKeyItem>::new();
+
+        let mut current = Some(self);
+
+        while let Some(key) = current {
+            stack.push(&key.item);
+            current = key.parent.as_deref();
+        }
+
+        stack.reverse();
+
+        for (i, item) in stack.iter().enumerate() {
+            match item {
+                PathKeyItem::Index => {
+                    f.write_str("[index]")?;
+                }
+
+                PathKeyItem::Key(key) => {
+                    for ch in key.chars() {
+                        match ch {
+                            '\\' => f.write_str("\\\\")?,
+                            '.' => f.write_str("\\.")?,
+                            '[' => f.write_str("\\[")?,
+                            ']' => f.write_str("\\]")?,
+                            _ => f.write_char(ch)?,
+                        }
+                    }
+                }
+            }
+
+            if i + 1 < stack.len() {
+                f.write_char('.')?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -142,13 +205,11 @@ pub fn deduplicate_json_structure(structure: &mut Vec<JsonPathItem>) {
     let mut visited_hashes = HashSet::new();
 
     structure.retain(|item| {
-        let hash = item.path_key.hashed_excluding_index();
-
-        if visited_hashes.contains(&hash) {
+        if visited_hashes.contains(&item.path_key) {
             return false;
         }
 
-        visited_hashes.insert(hash);
+        visited_hashes.insert(item.path_key.clone());
         true
     });
 }
@@ -197,10 +258,10 @@ fn walk_json_array(
     key: Option<Arc<PathKey>>,
     output: &mut Vec<JsonPathItem>,
 ) -> eyre::Result<()> {
-    for (index, value) in value.iter().enumerate() {
+    for value in value {
         let key = Arc::new(PathKey {
             parent: key.clone(),
-            item: PathKeyItem::Index(index),
+            item: PathKeyItem::Index,
         });
 
         walk_json_field(value, key, output)?;
@@ -226,19 +287,22 @@ fn walk_json_object(
     Ok(())
 }
 
+pub type OutputMappingMap = HashMap<Arc<PathKey>, HashMap<serde_json::Value, serde_json::Value>>;
+
+pub struct UpdateJsonData {
+    pub mappings: HashMap<Arc<PathKey>, Box<dyn FakeDataProducer>>,
+    pub output_keys: HashSet<Arc<PathKey>>,
+    pub output_mapping: OutputMappingMap,
+    pub existing_output_mapping: Option<HashMap<serde_json::Value, serde_json::Value>>,
+}
+
 pub fn update_json_structure(
     value: &serde_json::Value,
-    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
-    output_keys: &HashSet<u64>,
-    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
+    data: &mut UpdateJsonData,
 ) -> eyre::Result<serde_json::Value> {
     match value {
-        serde_json::Value::Array(value) => {
-            walk_json_array_update(value, None, mappings, output_keys, output_mapping)
-        }
-        serde_json::Value::Object(value) => {
-            walk_json_object_update(value, None, mappings, output_keys, output_mapping)
-        }
+        serde_json::Value::Array(value) => walk_json_array_update(value, None, data),
+        serde_json::Value::Object(value) => walk_json_object_update(value, None, data),
         _ => eyre::bail!("json structure must start with either an array or an object"),
     }
 }
@@ -246,55 +310,55 @@ pub fn update_json_structure(
 pub fn walk_json_field_update(
     value: &serde_json::Value,
     key: Arc<PathKey>,
-    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
-    output_keys: &HashSet<u64>,
-    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
+    data: &mut UpdateJsonData,
 ) -> eyre::Result<serde_json::Value> {
     match value {
         serde_json::Value::Null
         | serde_json::Value::Bool(_)
         | serde_json::Value::Number(_)
         | serde_json::Value::String(_) => {
-            let hash = key.hashed_excluding_index();
-            let faker_data = mappings
-                .get(&hash)
+            // Override from existing data
+            if let Some(output_override) = data
+                .existing_output_mapping
+                .as_ref()
+                .and_then(|map| map.get(value))
+            {
+                return Ok(output_override.clone());
+            }
+
+            let faker_data = data
+                .mappings
+                .get(&key)
                 .ok_or(eyre::eyre!("item was missing from structure mapping"))?;
             let new_value = faker_data.produce_fake(value);
 
             // Store the updated value
-            if output_keys.contains(&hash) {
-                let key = IndexIgnoredPathKey(key).to_string();
-                let mapping = output_mapping.entry(key).or_default();
+            if data.output_keys.contains(&key) {
+                let mapping = data.output_mapping.entry(key.clone()).or_default();
                 mapping.insert(value.clone(), new_value.clone());
             }
 
             Ok(new_value)
         }
-        serde_json::Value::Array(value) => {
-            walk_json_array_update(value, Some(key), mappings, output_keys, output_mapping)
-        }
-        serde_json::Value::Object(value) => {
-            walk_json_object_update(value, Some(key), mappings, output_keys, output_mapping)
-        }
+        serde_json::Value::Array(value) => walk_json_array_update(value, Some(key), data),
+        serde_json::Value::Object(value) => walk_json_object_update(value, Some(key), data),
     }
 }
 
 fn walk_json_array_update(
     value: &[serde_json::Value],
     key: Option<Arc<PathKey>>,
-    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
-    output_keys: &HashSet<u64>,
-    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
+    data: &mut UpdateJsonData,
 ) -> eyre::Result<serde_json::Value> {
     let mut values = Vec::new();
 
-    for (index, value) in value.iter().enumerate() {
+    for value in value {
         let key = Arc::new(PathKey {
             parent: key.clone(),
-            item: PathKeyItem::Index(index),
+            item: PathKeyItem::Index,
         });
 
-        let value = walk_json_field_update(value, key, mappings, output_keys, output_mapping)?;
+        let value = walk_json_field_update(value, key, data)?;
         values.push(value)
     }
 
@@ -304,9 +368,7 @@ fn walk_json_array_update(
 fn walk_json_object_update(
     value: &serde_json::Map<String, serde_json::Value>,
     key: Option<Arc<PathKey>>,
-    mappings: &HashMap<u64, Box<dyn FakeDataProducer>>,
-    output_keys: &HashSet<u64>,
-    output_mapping: &mut HashMap<String, HashMap<serde_json::Value, serde_json::Value>>,
+    data: &mut UpdateJsonData,
 ) -> eyre::Result<serde_json::Value> {
     let mut map = serde_json::Map::new();
 
@@ -316,7 +378,7 @@ fn walk_json_object_update(
             item: PathKeyItem::Key(object_key.to_string()),
         });
 
-        let new_value = walk_json_field_update(value, key, mappings, output_keys, output_mapping)?;
+        let new_value = walk_json_field_update(value, key, data)?;
         map.insert(object_key.clone(), new_value);
     }
 

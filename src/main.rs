@@ -1,24 +1,96 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    io::read_to_string,
+    io::Write,
+    path::PathBuf,
 };
 
+use clap::Parser;
+use eyre::Context;
 use inquire::prompt_confirmation;
 
 use crate::{
     fake::{fake_data_registry, prompt_fake_data_type},
-    json::{build_json_structure, deduplicate_json_structure, update_json_structure},
+    json::{
+        OutputMappingMap, UpdateJsonData, build_json_structure, deduplicate_json_structure,
+        update_json_structure,
+    },
 };
 
 mod fake;
 mod json;
 mod prompt_utils;
 
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Input file to process
+    #[arg(short, long)]
+    input: PathBuf,
+
+    /// Optional mapping file from a previous run to use for
+    /// keeping redacted IDs consistent across files
+    #[arg(long)]
+    input_mapping: Option<PathBuf>,
+
+    /// Optional pre-made configuration file to decide how
+    /// fields are redacted instead of prompting the user
+    #[arg(short, long)]
+    config: Option<PathBuf>,
+
+    /// Optional output file to store the processed file
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    /// Optional output file to store generated mappings from
+    /// pre-redacted field values to the post redacted values
+    /// for use with redacts that need to have consistent IDs
+    ///
+    /// Omitting an output file will use stdout
+    #[arg(long)]
+    output_mapping: Option<PathBuf>,
+
+    /// Optional output file to store the generated
+    #[arg(long)]
+    config_output: Option<PathBuf>,
+}
+
 fn main() -> eyre::Result<()> {
-    let file = read_to_string(File::open("./private/input.json")?)?;
-    let parsed = serde_json::from_str(&file)?;
-    let mut structure = build_json_structure(&parsed)?;
+    let args = Args::parse();
+
+    let input_data: serde_json::Value = {
+        let file = File::open(args.input).context("failed to open input file")?;
+        serde_json::from_reader(file).context("failed to read / parse file")?
+    };
+
+    let input_mapping_data: Option<OutputMappingMap> = match args.input_mapping {
+        Some(input_mapping) => {
+            let file = File::open(input_mapping).context("failed to open input file")?;
+            Some(serde_json::from_reader(file).context("failed to read / parse file")?)
+        }
+        None => None,
+    };
+
+    let flat_input_mapping_data: Option<HashMap<serde_json::Value, serde_json::Value>> =
+        input_mapping_data.map(|mapping| {
+            mapping
+                .values()
+                .flatten()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect()
+        });
+
+    // TODO: Config file
+    let _config: Option<serde_json::Value> = match args.config {
+        Some(config) => {
+            let file = File::open(config).context("failed to open input file")?;
+            Some(serde_json::from_reader(file).context("failed to read / parse file")?)
+        }
+        None => None,
+    };
+
+    let mut structure = build_json_structure(&input_data)?;
     deduplicate_json_structure(&mut structure);
 
     let registry = fake_data_registry();
@@ -31,28 +103,49 @@ fn main() -> eyre::Result<()> {
             "todo: handle cancelling to allow the user to try again"
         ))?;
 
-        let key_hash = item.path_key.hashed_excluding_index();
-
         if producer.is_allowed_output() {
             let key = item.path_key.to_string();
             if prompt_confirmation(format!(
                 "Do you want to create an output mapping for {key}?"
             ))? {
-                output_keys.insert(key_hash);
+                output_keys.insert(item.path_key.clone());
             }
         }
 
-        faker_data.insert(item.path_key.hashed_excluding_index(), producer);
+        faker_data.insert(item.path_key.clone(), producer);
     }
 
-    let mut output_mapping: HashMap<String, HashMap<serde_json::Value, serde_json::Value>> =
-        HashMap::new();
-    let output = update_json_structure(&parsed, &faker_data, &output_keys, &mut output_mapping)?;
-    let serialized = serde_json::to_string_pretty(&output)?;
-    let serialized_mapping = serde_json::to_string_pretty(&output_mapping)?;
+    let output_mapping: OutputMappingMap = HashMap::new();
 
-    println!("{serialized}\n");
-    println!("{serialized_mapping}");
+    let mut data = UpdateJsonData {
+        mappings: faker_data,
+        output_keys,
+        output_mapping,
+        existing_output_mapping: flat_input_mapping_data,
+    };
+
+    let output = update_json_structure(&input_data, &mut data)?;
+
+    let serialized = serde_json::to_string_pretty(&output)?;
+    if let Some(output) = args.output {
+        let mut file = File::create(output).context("failed to open output file")?;
+        file.write_all(serialized.as_bytes())
+            .context("failed to write output")?;
+        file.flush().context("failed to flush file")?;
+    } else {
+        println!("{serialized}");
+        println!();
+    }
+
+    let serialized_mapping = serde_json::to_string_pretty(&data.output_mapping)?;
+    if let Some(output_mapping) = args.output_mapping {
+        let mut file = File::create(output_mapping).context("failed to open output file")?;
+        file.write_all(serialized_mapping.as_bytes())
+            .context("failed to write output")?;
+        file.flush().context("failed to flush file")?;
+    } else {
+        println!("{serialized_mapping}");
+    }
 
     Ok(())
 }
