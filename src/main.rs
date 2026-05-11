@@ -23,7 +23,7 @@ mod fake;
 mod json;
 mod prompt_utils;
 
-/// Simple program to greet a person
+/// Data anonymizing tool.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
