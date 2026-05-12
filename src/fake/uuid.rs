@@ -8,8 +8,8 @@ use strum::{Display, VariantArray};
 use uuid::Uuid;
 
 use crate::{
+    data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
-    json::{JsonPathItem, JsonValue},
 };
 
 pub struct UuidFakeDataFactory;
@@ -19,13 +19,13 @@ impl FakeDataProducerFactory for UuidFakeDataFactory {
         "UUID".to_owned()
     }
 
-    fn is_allowed_for(&self, item: &JsonPathItem) -> bool {
-        matches!(item.value, JsonValue::String(_) | JsonValue::Null)
+    fn is_allowed_for(&self, item: &DataValueItem) -> bool {
+        matches!(item.value, DataValue::String(_) | DataValue::Null)
     }
 
     fn prompt(
         &self,
-        item: &JsonPathItem,
+        item: &DataValueItem,
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let unit_options = UuidVersion::VARIANTS.to_vec();
 
@@ -64,7 +64,7 @@ pub enum UuidVersion {
 }
 
 impl UuidVersion {
-    pub fn fake(&self) -> serde_json::Value {
+    pub fn fake(&self) -> DataValue {
         let value = match self {
             UuidVersion::V1 => UUIDv1.fake(),
             UuidVersion::V3 => UUIDv3.fake(),
@@ -74,7 +74,7 @@ impl UuidVersion {
             UuidVersion::V7 => UUIDv7.fake(),
         };
 
-        serde_json::Value::String(value)
+        DataValue::String(value)
     }
 
     fn equivalent(other: uuid::Version) -> Option<UuidVersion> {
@@ -98,7 +98,7 @@ pub struct UuidFakeData {
 
 #[typetag::serde(name = "uuid")]
 impl FakeDataProducer for UuidFakeData {
-    fn produce_fake(&self, _original_value: &serde_json::Value) -> eyre::Result<serde_json::Value> {
+    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
         Ok(self.version.fake())
     }
 
@@ -107,9 +107,9 @@ impl FakeDataProducer for UuidFakeData {
     }
 }
 
-fn original_value_version(value: &JsonValue) -> Option<uuid::Version> {
+fn original_value_version(value: &DataValue) -> Option<uuid::Version> {
     let value = match value {
-        JsonValue::String(value) => value,
+        DataValue::String(value) => value,
         _ => return None,
     };
 

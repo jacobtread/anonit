@@ -1,3 +1,16 @@
+use crate::{
+    data::{
+        OutputMappingMap, UpdateStructureData,
+        json::{json_data_value_items, json_update_data},
+        key::PathKey,
+        value::DataValueItem,
+    },
+    fake::{FakeDataProducer, fake_data_registry, prompt_fake_data_type},
+};
+use clap::Parser;
+use eyre::Context;
+use inquire::prompt_confirmation;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -6,23 +19,8 @@ use std::{
     sync::Arc,
 };
 
-use clap::Parser;
-use eyre::Context;
-use inquire::prompt_confirmation;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    data::key::PathKey,
-    fake::{FakeDataProducer, fake_data_registry, prompt_fake_data_type},
-    json::{
-        JsonPathItem, OutputMappingMap, UpdateJsonData, build_json_structure,
-        deduplicate_json_structure, update_json_structure,
-    },
-};
-
 mod data;
 mod fake;
-mod json;
 mod prompt_utils;
 
 /// Data anonymizing tool.
@@ -68,7 +66,7 @@ pub struct Config {
 }
 
 /// Prompt the user to configure based on the structure
-fn prompt_config(structure: &[JsonPathItem]) -> eyre::Result<Config> {
+fn prompt_config(structure: &[DataValueItem]) -> eyre::Result<Config> {
     let registry = fake_data_registry();
     let mut mapping = HashMap::new();
     let mut output = HashSet::new();
@@ -82,15 +80,15 @@ fn prompt_config(structure: &[JsonPathItem]) -> eyre::Result<Config> {
 
             // For keys that support outputting a mapping prompt the user if they want to
             if producer.is_allowed_output() {
-                let key = item.path_key.to_string();
+                let key = item.key.to_string();
                 if prompt_confirmation(format!(
                     "Do you want to create an output mapping for {key}?"
                 ))? {
-                    output.insert(item.path_key.clone());
+                    output.insert(item.key.clone());
                 }
             }
 
-            mapping.insert(item.path_key.clone(), producer);
+            mapping.insert(item.key.clone(), producer);
             break;
         }
     }
@@ -131,8 +129,7 @@ fn main() -> eyre::Result<()> {
         None => None,
     };
 
-    let mut structure = build_json_structure(&input_data)?;
-    deduplicate_json_structure(&mut structure);
+    let structure = json_data_value_items(&input_data)?;
 
     let config = match config {
         Some(config) => config,
@@ -148,14 +145,15 @@ fn main() -> eyre::Result<()> {
         file.flush().context("failed to flush file")?;
     }
 
-    let mut data = UpdateJsonData {
+    let mut data = UpdateStructureData {
         mappings: config.mapping,
         output_keys: config.output,
         output_mapping,
         existing_output_mapping: flat_input_mapping_data,
     };
 
-    let output = update_json_structure(&input_data, &mut data)?;
+    let mut output = input_data.clone();
+    json_update_data(&mut output, &mut data)?;
 
     let serialized = serde_json::to_string_pretty(&output)?;
     if let Some(output) = args.output {

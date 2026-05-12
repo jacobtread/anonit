@@ -1,13 +1,12 @@
-use std::{cell::RefCell, collections::HashMap, fs::File, io::read_to_string, path::PathBuf};
-
-use itertools::Itertools;
-use rand::{random_range, seq::IndexedRandom};
-use serde::{Deserialize, Serialize};
-
 use crate::{
+    data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
     prompt_utils::{prompt_file_path, prompt_range},
 };
+use itertools::Itertools;
+use rand::{random_range, seq::IndexedRandom};
+use serde::{Deserialize, Serialize};
+use std::{cell::RefCell, collections::HashMap, fs::File, io::read_to_string, path::PathBuf};
 
 pub struct WordlistFakeDataFactory;
 
@@ -18,7 +17,7 @@ impl FakeDataProducerFactory for WordlistFakeDataFactory {
 
     fn prompt(
         &self,
-        _item: &crate::json::JsonPathItem,
+        _item: &DataValueItem,
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let file_path = match prompt_file_path("Enter path to the wordlist file")? {
             Some(value) => value,
@@ -87,13 +86,13 @@ fn get_wordlist_or_cache(path: PathBuf, amount: usize) -> eyre::Result<String> {
 
 #[typetag::serde(name = "wordlist")]
 impl FakeDataProducer for WordlistFakeData {
-    fn produce_fake(&self, _original_value: &serde_json::Value) -> eyre::Result<serde_json::Value> {
+    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
         let amount = if self.amount.is_empty() {
             self.amount.start
         } else {
             random_range(self.amount.clone())
         };
         let value = get_wordlist_or_cache(self.file_path.clone(), amount)?;
-        Ok(serde_json::Value::String(value))
+        Ok(DataValue::String(value))
     }
 }

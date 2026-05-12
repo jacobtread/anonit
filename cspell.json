@@ -7,7 +7,8 @@
     "chrono",
     "anonit",
     "peekable",
-    "wordlist"
+    "wordlist",
+    "Deque"
   ],
   "userWords": [
     "FakeDataProducerFactory",

@@ -4,11 +4,11 @@ use inquire::Select;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{
         lorem::LoremIpsumFakeDataFactory, uuid::UuidFakeDataFactory,
         wordlist::WordlistFakeDataFactory,
     },
-    json::JsonPathItem,
 };
 
 mod lorem;
@@ -21,19 +21,19 @@ pub trait FakeDataProducerFactory {
 
     /// Check for whether the producer is allowed to be used with
     /// the provided item
-    fn is_allowed_for(&self, _item: &JsonPathItem) -> bool {
+    fn is_allowed_for(&self, _item: &DataValueItem) -> bool {
         true
     }
 
     /// Prompt the user for any available options and produce the fake data
     /// returning [None] considers the prompting to be cancelled allowing the
     /// user to select another producer
-    fn prompt(&self, item: &JsonPathItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>>;
+    fn prompt(&self, item: &DataValueItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>>;
 }
 
 #[typetag::serde(tag = "type")]
 pub trait FakeDataProducer {
-    fn produce_fake(&self, original_value: &serde_json::Value) -> eyre::Result<serde_json::Value>;
+    fn produce_fake(&self, original_value: DataValueRef<'_>) -> eyre::Result<DataValue>;
 
     /// Check whether the type can be used in output mappings
     fn is_allowed_output(&self) -> bool {
@@ -48,7 +48,7 @@ impl FakeDataProducerFactory for IgnoreProducerFactory {
         "Ignore".to_owned()
     }
 
-    fn prompt(&self, _item: &JsonPathItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
+    fn prompt(&self, _item: &DataValueItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
         Ok(Some(Box::new(IgnoreProducer)))
     }
 }
@@ -58,8 +58,8 @@ struct IgnoreProducer;
 
 #[typetag::serde(name = "ignore")]
 impl FakeDataProducer for IgnoreProducer {
-    fn produce_fake(&self, original_value: &serde_json::Value) -> eyre::Result<serde_json::Value> {
-        Ok(original_value.clone())
+    fn produce_fake(&self, original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+        Ok(original_value.into())
     }
 }
 
@@ -84,7 +84,7 @@ impl<'a> Display for PromptFactoryOption<'a> {
 
 pub fn prompt_fake_data_type<'a>(
     registry: &'a [Box<dyn FakeDataProducerFactory>],
-    item: &JsonPathItem,
+    item: &DataValueItem,
 ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
     let items: Vec<PromptFactoryOption<'a>> = registry
         .iter()
@@ -94,7 +94,7 @@ pub fn prompt_fake_data_type<'a>(
         })
         .collect();
 
-    let key = item.path_key.to_string();
+    let key = item.key.to_string();
     let message = format!("What type should \"{key}\" be?");
     let answer = Select::new(&message, items).prompt()?;
     answer.factory.prompt(item)

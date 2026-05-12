@@ -5,8 +5,8 @@ use inquire::Select;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
-    json::JsonPathItem,
     prompt_utils::prompt_range,
 };
 
@@ -19,7 +19,7 @@ impl FakeDataProducerFactory for LoremIpsumFakeDataFactory {
 
     fn prompt(
         &self,
-        _item: &JsonPathItem,
+        _item: &DataValueItem,
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let unit_options = vec![
             LoremIpsumUnit::Words,
@@ -75,22 +75,22 @@ impl Display for LoremIpsumUnit {
 
 #[typetag::serde(name = "lorem")]
 impl FakeDataProducer for LoremIpsumFakeData {
-    fn produce_fake(&self, _original_value: &serde_json::Value) -> eyre::Result<serde_json::Value> {
+    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
         Ok(match self.unit {
             LoremIpsumUnit::Words => {
                 let words = fake::faker::lorem::en::Words(self.range.clone());
                 let fake: Vec<String> = words.fake();
-                serde_json::Value::String(fake.join(" "))
+                DataValue::String(fake.join(" "))
             }
             LoremIpsumUnit::Sentences => {
                 let words = fake::faker::lorem::en::Sentence(self.range.clone());
                 let fake = words.fake();
-                serde_json::Value::String(fake)
+                DataValue::String(fake)
             }
             LoremIpsumUnit::Paragraphs => {
                 let words = fake::faker::lorem::en::Paragraph(self.range.clone());
                 let fake = words.fake();
-                serde_json::Value::String(fake)
+                DataValue::String(fake)
             }
         })
     }
