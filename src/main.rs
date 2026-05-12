@@ -74,21 +74,25 @@ fn prompt_config(structure: &[JsonPathItem]) -> eyre::Result<Config> {
     let mut output = HashSet::new();
 
     for item in structure {
-        let producer = prompt_fake_data_type(&registry, item)?.ok_or(eyre::eyre!(
-            "todo: handle cancelling to allow the user to try again"
-        ))?;
+        loop {
+            let producer = match prompt_fake_data_type(&registry, item)? {
+                Some(value) => value,
+                None => continue,
+            };
 
-        // For keys that support outputting a mapping prompt the user if they want to
-        if producer.is_allowed_output() {
-            let key = item.path_key.to_string();
-            if prompt_confirmation(format!(
-                "Do you want to create an output mapping for {key}?"
-            ))? {
-                output.insert(item.path_key.clone());
+            // For keys that support outputting a mapping prompt the user if they want to
+            if producer.is_allowed_output() {
+                let key = item.path_key.to_string();
+                if prompt_confirmation(format!(
+                    "Do you want to create an output mapping for {key}?"
+                ))? {
+                    output.insert(item.path_key.clone());
+                }
             }
-        }
 
-        mapping.insert(item.path_key.clone(), producer);
+            mapping.insert(item.path_key.clone(), producer);
+            break;
+        }
     }
 
     Ok(Config { mapping, output })
