@@ -1,6 +1,9 @@
 use fake::{
     Fake,
-    faker::name::en::{FirstName, LastName, Name, NameWithTitle, Suffix, Title},
+    faker::{
+        internet::en::Username,
+        name::en::{FirstName, LastName, Name, NameWithTitle, Suffix, Title},
+    },
 };
 use inquire::Select;
 use serde::{Deserialize, Serialize};
@@ -47,6 +50,7 @@ pub struct NameProducer {
 #[derive(Debug, Display, VariantArray, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NameStyle {
+    Username,
     FirstName,
     LastName,
     Name,
@@ -59,6 +63,7 @@ pub enum NameStyle {
 impl FakeDataProducer for NameProducer {
     fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
         let value = match &self.ty {
+            NameStyle::Username => Username().fake(),
             NameStyle::FirstName => FirstName().fake(),
             NameStyle::LastName => LastName().fake(),
             NameStyle::Name => Name().fake(),
