@@ -6,6 +6,7 @@
     "serde",
     "itertools",
     "chrono",
-    "anonit"
+    "anonit",
+    "Jacobtread"
   ]
 }

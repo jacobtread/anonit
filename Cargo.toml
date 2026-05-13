@@ -2,6 +2,12 @@
 name = "anonit"
 version = "0.0.1"
 edition = "2024"
+description = "Data anonymizing tool."
+readme = "README.md"
+license = "MIT"
+authors = ["Jacobtread <jacobtread@gmail.com>"]
+homepage = "https://github.com/jacobtread/anonit"
+repository = "https://github.com/jacobtread/anonit"
 
 [dependencies]
 # CLI handling
@@ -40,3 +46,8 @@ num-bigint = { version = "0.4.6", features = ["serde", "rand"] }
 
 # Legacy rand version for working with num-bigint
 rand08 = { package = "rand", version = "0.8" }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
