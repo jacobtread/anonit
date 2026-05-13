@@ -20,8 +20,7 @@ impl FakeDataProducerFactory for UuidFakeDataFactory {
     }
 
     fn is_allowed_for(&self, item: &DataValueItem) -> bool {
-        item.values_iter()
-            .any(|value| matches!(value, DataValueRef::String(_) | DataValueRef::Null))
+        item.is_any_string_or_null()
     }
 
     fn prompt(

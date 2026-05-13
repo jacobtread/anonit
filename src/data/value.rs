@@ -15,6 +15,12 @@ impl DataValueNumber {
     }
 }
 
+impl From<DataValueNumber> for String {
+    fn from(value: DataValueNumber) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataValueNumberRef<'a>(&'a str);
 
@@ -51,6 +57,20 @@ impl<'a> From<DataValueRef<'a>> for DataValue {
     }
 }
 
+impl<'a> DataValueRef<'a> {
+    pub fn is_number_or_null(&self) -> bool {
+        matches!(self, DataValueRef::Number(_) | DataValueRef::Null)
+    }
+
+    pub fn is_string_or_null(&self) -> bool {
+        matches!(self, DataValueRef::String(_) | DataValueRef::Null)
+    }
+
+    pub fn is_bool_or_null(&self) -> bool {
+        matches!(self, DataValueRef::Boolean(_) | DataValueRef::Null)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataValueItem<'a> {
     pub key: Arc<PathKey>,
@@ -72,5 +92,13 @@ impl<'a> DataValueItem<'a> {
 
     pub fn values_iter<'d>(&'d self) -> std::slice::Iter<'d, DataValueRef<'a>> {
         self.values.iter()
+    }
+
+    pub fn is_any_string_or_null(&self) -> bool {
+        self.values_iter().any(|value| value.is_string_or_null())
+    }
+
+    pub fn is_any_number_or_null(&self) -> bool {
+        self.values_iter().any(|value| value.is_number_or_null())
     }
 }

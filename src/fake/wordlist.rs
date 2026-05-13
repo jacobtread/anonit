@@ -15,6 +15,10 @@ impl FakeDataProducerFactory for WordlistFakeDataFactory {
         "Wordlist (Custom text file)".to_owned()
     }
 
+    fn is_allowed_for(&self, item: &DataValueItem) -> bool {
+        item.is_any_string_or_null()
+    }
+
     fn prompt(
         &self,
         _item: &DataValueItem,
