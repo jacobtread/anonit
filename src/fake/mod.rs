@@ -7,12 +7,14 @@ use crate::{
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{
         email::EmailFakeDataProducerFactory, lorem::LoremIpsumFakeDataFactory,
-        uuid::UuidFakeDataFactory, wordlist::WordlistFakeDataFactory,
+        number::NumberProducerFactory, uuid::UuidFakeDataFactory,
+        wordlist::WordlistFakeDataFactory,
     },
 };
 
 mod email;
 mod lorem;
+mod number;
 mod uuid;
 mod wordlist;
 
@@ -71,6 +73,7 @@ pub fn fake_data_registry() -> Vec<Box<dyn FakeDataProducerFactory>> {
         Box::new(UuidFakeDataFactory),
         Box::new(WordlistFakeDataFactory),
         Box::new(EmailFakeDataProducerFactory),
+        Box::new(NumberProducerFactory),
     ]
 }
 

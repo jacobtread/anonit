@@ -1,16 +1,11 @@
 {
-    "words": [
-        "typetag",
-        "serde",
-        "itertools",
-        "thiserror",
-        "chrono",
-        "anonit",
-        "peekable",
-        "wordlist",
-        "Deque"
-    ],
-    "userWords": [
-        "FakeDataProducerFactory",
-    ]
+  "words": [
+    "bigdecimal",
+    "thiserror",
+    "typetag",
+    "serde",
+    "itertools",
+    "chrono",
+    "anonit"
+  ]
 }
