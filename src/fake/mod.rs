@@ -6,11 +6,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{
-        lorem::LoremIpsumFakeDataFactory, uuid::UuidFakeDataFactory,
-        wordlist::WordlistFakeDataFactory,
+        email::EmailFakeDataProducerFactory, lorem::LoremIpsumFakeDataFactory,
+        uuid::UuidFakeDataFactory, wordlist::WordlistFakeDataFactory,
     },
 };
 
+mod email;
 mod lorem;
 mod uuid;
 mod wordlist;
@@ -69,6 +70,7 @@ pub fn fake_data_registry() -> Vec<Box<dyn FakeDataProducerFactory>> {
         Box::new(LoremIpsumFakeDataFactory),
         Box::new(UuidFakeDataFactory),
         Box::new(WordlistFakeDataFactory),
+        Box::new(EmailFakeDataProducerFactory),
     ]
 }
 
