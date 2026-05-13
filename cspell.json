@@ -1,17 +1,16 @@
 {
-  "words": [
-    "typetag",
-    "serde",
-    "itertools",
-    "thiserror",
-    "chrono",
-    "anonit",
-    "peekable",
-    "wordlist",
-    "Deque"
-  ],
-  "userWords": [
-    "FakeDataProducerFactory",
-    "impl FakeDataProducer for WordlistFakeData"
-  ]
+    "words": [
+        "typetag",
+        "serde",
+        "itertools",
+        "thiserror",
+        "chrono",
+        "anonit",
+        "peekable",
+        "wordlist",
+        "Deque"
+    ],
+    "userWords": [
+        "FakeDataProducerFactory",
+    ]
 }

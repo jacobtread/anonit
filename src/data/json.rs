@@ -5,21 +5,27 @@ use super::key::PathKeyItem;
 use crate::data::{
     UpdateStructureData,
     key::PathKey,
-    value::{DataValue, DataValueItem, DataValueRef},
+    value::{DataValue, DataValueItem, DataValueNumber, DataValueNumberRef, DataValueRef},
 };
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, VecDeque},
+    str::FromStr,
     sync::Arc,
 };
 
-impl From<DataValue> for serde_json::Value {
-    fn from(value: DataValue) -> Self {
-        match value {
-            DataValue::Number(value) => serde_json::Value::Number(value),
+impl TryFrom<DataValue> for serde_json::Value {
+    type Error = serde_json::Error;
+
+    fn try_from(value: DataValue) -> Result<Self, Self::Error> {
+        Ok(match value {
+            DataValue::Number(value) => {
+                let value = serde_json::Number::from_str(value.as_str())?;
+                serde_json::Value::Number(value)
+            }
             DataValue::String(value) => serde_json::Value::String(value),
             DataValue::Boolean(value) => serde_json::Value::Bool(value),
             DataValue::Null => serde_json::Value::Null,
-        }
+        })
     }
 }
 
@@ -34,7 +40,9 @@ impl TryFrom<serde_json::Value> for DataValue {
         Ok(match value {
             serde_json::Value::Null => DataValue::Null,
             serde_json::Value::Bool(value) => DataValue::Boolean(value),
-            serde_json::Value::Number(value) => DataValue::Number(value),
+            serde_json::Value::Number(value) => {
+                DataValue::Number(DataValueNumber::new(value.to_string()))
+            }
             serde_json::Value::String(value) => DataValue::String(value),
 
             _ => return Err(UnsupportedJsonDataValue),
@@ -49,7 +57,9 @@ impl<'a> TryFrom<&'a serde_json::Value> for DataValueRef<'a> {
         Ok(match value {
             serde_json::Value::Null => DataValueRef::Null,
             serde_json::Value::Bool(value) => DataValueRef::Boolean(*value),
-            serde_json::Value::Number(value) => DataValueRef::Number(value.clone()),
+            serde_json::Value::Number(value) => {
+                DataValueRef::Number(DataValueNumberRef::new(value.as_str()))
+            }
             serde_json::Value::String(value) => DataValueRef::String(value.as_str()),
             _ => return Err(UnsupportedJsonDataValue),
         })
@@ -84,46 +94,23 @@ impl<'a> JsonWalkIter<'a> {
 }
 
 impl<'a> Iterator for JsonWalkIter<'a> {
-    type Item = DataValueItem;
+    type Item = DataValueItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let item = self.stack.pop_front()?;
+            if let Ok(data_value_ref) = DataValueRef::try_from(item.value) {
+                let key = item.key?;
+                return Some(DataValueItem::new(key, data_value_ref));
+            }
 
             match item.value {
-                serde_json::Value::Null => {
-                    let key = item.key?;
-                    return Some(DataValueItem {
-                        key,
-                        value: DataValue::Null,
-                    });
-                }
-                serde_json::Value::Bool(value) => {
-                    let key = item.key?;
-                    return Some(DataValueItem {
-                        key,
-                        value: DataValue::Boolean(*value),
-                    });
-                }
-                serde_json::Value::Number(value) => {
-                    let key = item.key?;
-                    return Some(DataValueItem {
-                        key,
-                        value: DataValue::Number(value.clone()),
-                    });
-                }
-                serde_json::Value::String(value) => {
-                    let key = item.key?;
-                    return Some(DataValueItem {
-                        key,
-                        value: DataValue::String(value.clone()),
-                    });
-                }
                 serde_json::Value::Array(values) => {
                     // Push to the front in reverse order so we iterate in the same order
                     for value in values.iter().rev() {
+                        let key = PathKey::new(item.key.clone(), PathKeyItem::Index);
                         self.stack.push_front(WalkStackItem {
-                            key: Some(Arc::new(PathKey::new(item.key.clone(), PathKeyItem::Index))),
+                            key: Some(Arc::new(key)),
                             value,
                         });
                     }
@@ -131,32 +118,36 @@ impl<'a> Iterator for JsonWalkIter<'a> {
                 serde_json::Value::Object(map) => {
                     // Push to the front in reverse order so we iterate in the same order
                     for (key, value) in map.iter().rev() {
+                        let key = PathKey::new(item.key.clone(), PathKeyItem::Key(key.to_owned()));
                         self.stack.push_front(WalkStackItem {
-                            key: Some(Arc::new(PathKey::new(
-                                item.key.clone(),
-                                PathKeyItem::Key(key.to_owned()),
-                            ))),
+                            key: Some(Arc::new(key)),
                             value,
                         });
                     }
                 }
+
+                // This should never occur as DataValueRef::try_from handles all the other serde_json::Value types
+                _ => unreachable!("unexpected json value encountered"),
             }
         }
     }
 }
 
 /// Walks the JSON structure providing a de-duplicated collection of [DataValueItem]'s
-pub fn json_data_value_items(value: &serde_json::Value) -> eyre::Result<Vec<DataValueItem>> {
+pub fn json_data_value_items(value: &serde_json::Value) -> eyre::Result<Vec<DataValueItem<'_>>> {
     let iter = JsonWalkIter::new(value)?;
-    let mut visited_keys = HashSet::new();
+    let mut existing_items = HashMap::new();
     let mut output = Vec::new();
 
     for item in iter {
-        if visited_keys.contains(&item.key) {
+        // Extend the value set for existing items
+        if let Some(existing_index) = existing_items.get(&item.key) {
+            let existing_item: &mut DataValueItem<'_> = &mut output[*existing_index];
+            existing_item.values.extend(item.values);
             continue;
         }
 
-        visited_keys.insert(item.key.clone());
+        existing_items.insert(item.key.clone(), output.len());
         output.push(item);
     }
 
@@ -269,15 +260,15 @@ pub fn json_update_data(
                     .produce_fake(existing_value_ref)
                     .context("failed to generate new value")?;
 
+                let json_value: serde_json::Value = new_value.try_into()?;
+
                 // Store the updated value
                 if data.output_keys.contains(key) {
                     let mapping = data.output_mapping.entry(key.clone()).or_default();
-                    let mapped_value = new_value.clone();
-
-                    mapping.insert(item.value.clone(), mapped_value.into());
+                    mapping.insert(item.value.clone(), json_value.clone());
                 }
 
-                *item.value = new_value.into();
+                *item.value = json_value;
             }
 
             _ => eyre::bail!("unexpected item value type"),
@@ -285,4 +276,90 @@ pub fn json_update_data(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::data::{
+        json::json_data_value_items,
+        key::PathKey,
+        value::{DataValueItem, DataValueRef},
+    };
+    use serde_json::json;
+    use std::sync::Arc;
+
+    fn test_path_key(key: &str) -> Arc<PathKey> {
+        key.parse::<PathKey>()
+            .map(Arc::new)
+            .expect("invalid test path key")
+    }
+
+    /// Tests that a JSON structure can be successfully walked
+    #[test]
+    fn test_walk_json_structure() {
+        let values = json!({
+            "key": "value",
+            "nested": {
+                "a": "value_a",
+                "b": "value_b"
+            },
+            "array": [
+                {
+                    "id": "test"
+                },
+                {
+                    "id": "test_2",
+                    "test": "array_test",
+                }
+            ]
+        });
+        let structure = json_data_value_items(&values).unwrap();
+
+        assert_eq!(
+            &structure,
+            &[
+                DataValueItem::new(test_path_key("key"), DataValueRef::String("value")),
+                DataValueItem::new(test_path_key("nested.a"), DataValueRef::String("value_a")),
+                DataValueItem::new(test_path_key("nested.b"), DataValueRef::String("value_b")),
+                DataValueItem::new_many(
+                    test_path_key("array.[index].id"),
+                    vec![DataValueRef::String("test"), DataValueRef::String("test_2")]
+                ),
+                DataValueItem::new(
+                    test_path_key("array.[index].test"),
+                    DataValueRef::String("array_test")
+                )
+            ]
+        )
+    }
+
+    /// Tests that when walking a JSON array keys that have
+    /// already been visited previously will not appear
+    /// multiple times
+    #[test]
+    fn test_walk_array_index_deduplication() {
+        let values = json!([
+            {
+                "id": "test"
+            },
+            {
+                "id": "test_2",
+                "test": "array_test",
+            }
+        ]);
+        let structure = json_data_value_items(&values).unwrap();
+        assert_eq!(
+            &structure,
+            &[
+                DataValueItem::new_many(
+                    test_path_key("[index].id"),
+                    vec![DataValueRef::String("test"), DataValueRef::String("test_2")]
+                ),
+                DataValueItem::new(
+                    test_path_key("[index].test"),
+                    DataValueRef::String("array_test")
+                )
+            ]
+        )
+    }
 }

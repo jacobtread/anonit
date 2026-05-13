@@ -20,7 +20,8 @@ impl FakeDataProducerFactory for UuidFakeDataFactory {
     }
 
     fn is_allowed_for(&self, item: &DataValueItem) -> bool {
-        matches!(item.value, DataValue::String(_) | DataValue::Null)
+        item.values_iter()
+            .any(|value| matches!(value, DataValueRef::String(_) | DataValueRef::Null))
     }
 
     fn prompt(
@@ -29,8 +30,11 @@ impl FakeDataProducerFactory for UuidFakeDataFactory {
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let unit_options = UuidVersion::VARIANTS.to_vec();
 
-        let target_uuid_version =
-            original_value_version(&item.value).and_then(UuidVersion::equivalent);
+        let target_uuid_version = item
+            .values_iter()
+            .filter_map(original_value_version)
+            .next()
+            .and_then(UuidVersion::equivalent);
 
         let target_uuid_version_index = target_uuid_version
             .and_then(|target_version| {
@@ -107,9 +111,9 @@ impl FakeDataProducer for UuidFakeData {
     }
 }
 
-fn original_value_version(value: &DataValue) -> Option<uuid::Version> {
+fn original_value_version(value: &DataValueRef<'_>) -> Option<uuid::Version> {
     let value = match value {
-        DataValue::String(value) => value,
+        DataValueRef::String(value) => *value,
         _ => return None,
     };
 

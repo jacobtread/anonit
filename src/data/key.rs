@@ -31,6 +31,21 @@ impl PathKey {
     }
 }
 
+impl FromIterator<PathKeyItem> for Option<PathKey> {
+    fn from_iter<T: IntoIterator<Item = PathKeyItem>>(iter: T) -> Self {
+        let mut current: Option<PathKey> = None;
+
+        for item in iter {
+            current = Some(PathKey {
+                parent: current.map(Arc::new),
+                item,
+            });
+        }
+
+        current
+    }
+}
+
 impl Serialize for PathKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
