@@ -44,7 +44,7 @@ impl FakeDataProducerFactory for UuidFakeDataFactory {
             })
             .unwrap_or_default();
 
-        let version = match Select::new("What's unit of lorem ipsum would you like?", unit_options)
+        let version = match Select::new("What version of UUID would you like?", unit_options)
             .with_starting_cursor(target_uuid_version_index)
             .prompt_skippable()?
         {
