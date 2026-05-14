@@ -113,13 +113,7 @@ fn main() -> eyre::Result<()> {
     };
 
     let flat_input_mapping_data: Option<HashMap<serde_json::Value, serde_json::Value>> =
-        input_mapping_data.map(|mapping| {
-            mapping
-                .values()
-                .flatten()
-                .map(|(key, value)| (key.clone(), value.clone()))
-                .collect()
-        });
+        input_mapping_data.map(|mapping| mapping.into_values().flatten().collect());
 
     let config: Option<Config> = match args.config {
         Some(config) => {
