@@ -1,3 +1,4 @@
+use inquire::{Text, prompt_confirmation};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -25,19 +26,57 @@ impl FakeDataProducerFactory for NumberStringProducerFactory {
             None => return Ok(None),
         };
 
-        Ok(Some(Box::new(NumberStringProducer { range })))
+        let prefix = if prompt_confirmation("Do you want to include a prefix?")? {
+            let prefix = match Text::new("Enter the prefix value").prompt_skippable()? {
+                Some(value) => value,
+                None => return Ok(None),
+            };
+
+            Some(prefix)
+        } else {
+            None
+        };
+
+        let suffix = if prompt_confirmation("Do you want to include a suffix?")? {
+            let suffix = match Text::new("Enter the suffix value").prompt_skippable()? {
+                Some(value) => value,
+                None => return Ok(None),
+            };
+
+            Some(suffix)
+        } else {
+            None
+        };
+
+        Ok(Some(Box::new(NumberStringProducer {
+            range,
+            prefix,
+            suffix,
+        })))
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NumberStringProducer {
     range: NumberRange,
+    prefix: Option<String>,
+    suffix: Option<String>,
 }
 
 #[typetag::serde(name = "number")]
 impl FakeDataProducer for NumberStringProducer {
     fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
         let value = self.range.fake()?;
-        Ok(DataValue::String(value.into()))
+        let mut string_value: String = value.into();
+
+        if let Some(prefix) = self.prefix.as_ref() {
+            string_value = format!("{prefix}{string_value}");
+        }
+
+        if let Some(suffix) = self.suffix.as_ref() {
+            string_value.push_str(suffix);
+        }
+
+        Ok(DataValue::String(string_value))
     }
 }
