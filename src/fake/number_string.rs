@@ -63,7 +63,7 @@ pub struct NumberStringProducer {
     suffix: Option<String>,
 }
 
-#[typetag::serde(name = "number")]
+#[typetag::serde(name = "number_string")]
 impl FakeDataProducer for NumberStringProducer {
     fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
         let value = self.range.fake()?;
