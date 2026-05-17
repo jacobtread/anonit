@@ -1,24 +1,16 @@
 use crate::{
+    config::Config,
     data::{
         OutputMappingMap, UpdateStructureData,
         json::{json_data_value_items, json_update_data},
-        key::PathKey,
-        value::DataValueItem,
     },
-    fake::{FakeDataProducer, fake_data_registry, prompt_fake_data_type},
+    fake::fake_data_registry,
 };
 use clap::Parser;
 use eyre::Context;
-use inquire::prompt_confirmation;
-use serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    io::Write,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
+mod config;
 mod data;
 mod fake;
 mod prompt_utils;
@@ -59,43 +51,6 @@ struct Args {
     config_output: Option<PathBuf>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Config {
-    mapping: HashMap<Arc<PathKey>, Box<dyn FakeDataProducer>>,
-    output: HashSet<Arc<PathKey>>,
-}
-
-/// Prompt the user to configure based on the structure
-fn prompt_config(structure: &[DataValueItem]) -> eyre::Result<Config> {
-    let registry = fake_data_registry();
-    let mut mapping = HashMap::new();
-    let mut output = HashSet::new();
-
-    for item in structure {
-        loop {
-            let producer = match prompt_fake_data_type(&registry, item)? {
-                Some(value) => value,
-                None => continue,
-            };
-
-            // For keys that support outputting a mapping prompt the user if they want to
-            if producer.is_allowed_output() {
-                let key = item.key.to_string();
-                if prompt_confirmation(format!(
-                    "Do you want to create an output mapping for {key}?"
-                ))? {
-                    output.insert(item.key.clone());
-                }
-            }
-
-            mapping.insert(item.key.clone(), producer);
-            break;
-        }
-    }
-
-    Ok(Config { mapping, output })
-}
-
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
 
@@ -115,19 +70,15 @@ fn main() -> eyre::Result<()> {
     let flat_input_mapping_data: Option<HashMap<serde_json::Value, serde_json::Value>> =
         input_mapping_data.map(|mapping| mapping.into_values().flatten().collect());
 
-    let config: Option<Config> = match args.config {
-        Some(config) => {
-            let file = File::open(config).context("failed to open input file")?;
-            Some(serde_json::from_reader(file).context("failed to read / parse file")?)
-        }
-        None => None,
-    };
-
+    let config = args.config.map(Config::try_from_file).transpose()?;
     let structure = json_data_value_items(&input_data)?;
 
     let config = match config {
         Some(config) => config,
-        None => prompt_config(&structure)?,
+        None => {
+            let registry = fake_data_registry();
+            Config::prompt_from_structure(&registry, &structure)?
+        }
     };
 
     let output_mapping: OutputMappingMap = HashMap::new();
