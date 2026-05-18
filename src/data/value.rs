@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::data::key::PathKey;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DataValueNumber(String);
 
 impl DataValueNumber {
@@ -21,7 +21,7 @@ impl From<DataValueNumber> for String {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DataValueNumberRef<'a>(&'a str);
 
 impl<'a> DataValueNumberRef<'a> {
@@ -30,7 +30,7 @@ impl<'a> DataValueNumberRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DataValue {
     Number(DataValueNumber),
     String(String),
@@ -38,7 +38,7 @@ pub enum DataValue {
     Null,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DataValueRef<'a> {
     Number(DataValueNumberRef<'a>),
     String(&'a str),
