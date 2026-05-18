@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, VariantArray};
 
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::FakeDataProducerFactory,
 };
@@ -60,7 +61,11 @@ pub enum NameStyle {
 
 #[typetag::serde(name = "name")]
 impl FakeDataProducer for NameProducer {
-    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        _original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         let value = match &self.ty {
             NameStyle::Username => Username().fake(),
             NameStyle::FirstName => FirstName().fake(),

@@ -1,4 +1,5 @@
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
     prompt_utils::{prompt_file_path, prompt_range},
@@ -90,7 +91,11 @@ fn get_wordlist_or_cache(path: PathBuf, amount: usize) -> eyre::Result<String> {
 
 #[typetag::serde(name = "wordlist")]
 impl FakeDataProducer for WordlistFakeData {
-    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        _original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         let amount = if self.amount.is_empty() {
             self.amount.start
         } else {

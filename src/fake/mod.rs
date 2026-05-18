@@ -4,6 +4,7 @@ use inquire::Select;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{
         email::EmailFakeDataProducerFactory, lorem::LoremIpsumFakeDataFactory,
@@ -39,7 +40,11 @@ pub trait FakeDataProducerFactory {
 
 #[typetag::serde(tag = "type")]
 pub trait FakeDataProducer {
-    fn produce_fake(&self, original_value: DataValueRef<'_>) -> eyre::Result<DataValue>;
+    fn produce_fake(
+        &self,
+        original_value: DataValueRef<'_>,
+        ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue>;
 
     /// Check whether the type can be used in output mappings
     fn is_allowed_output(&self) -> bool {
@@ -64,7 +69,11 @@ struct IgnoreProducer;
 
 #[typetag::serde(name = "ignore")]
 impl FakeDataProducer for IgnoreProducer {
-    fn produce_fake(&self, original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         Ok(original_value.into())
     }
 }

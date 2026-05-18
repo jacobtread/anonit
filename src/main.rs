@@ -1,5 +1,6 @@
 use crate::{
     config::Config,
+    ctx::ProducerCtx,
     data::{
         OutputMappingMap, UpdateStructureData,
         json::{json_data_value_items, json_update_data},
@@ -11,6 +12,7 @@ use eyre::Context;
 use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
 mod config;
+mod ctx;
 mod data;
 mod fake;
 mod prompt_utils;
@@ -90,10 +92,12 @@ fn main() -> eyre::Result<()> {
         file.flush().context("failed to flush file")?;
     }
 
+    let ctx = ProducerCtx::default();
     let mut data = UpdateStructureData {
         config,
         output_mapping,
         existing_output_mapping: flat_input_mapping_data,
+        ctx,
     };
 
     let mut output = input_data.clone();

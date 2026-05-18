@@ -2,6 +2,7 @@ use fake::{Fake, faker::internet::en::SafeEmail};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
 };
@@ -30,7 +31,11 @@ pub struct EmailFakeData;
 
 #[typetag::serde(name = "email")]
 impl FakeDataProducer for EmailFakeData {
-    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        _original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         let value = SafeEmail().fake();
         Ok(DataValue::String(value))
     }

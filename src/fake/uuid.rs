@@ -8,6 +8,7 @@ use strum::{Display, VariantArray};
 use uuid::Uuid;
 
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
 };
@@ -101,7 +102,11 @@ pub struct UuidFakeData {
 
 #[typetag::serde(name = "uuid")]
 impl FakeDataProducer for UuidFakeData {
-    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        _original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         Ok(self.version.fake())
     }
 

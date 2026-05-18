@@ -5,6 +5,7 @@ use inquire::Select;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
     prompt_utils::prompt_range,
@@ -79,7 +80,11 @@ impl Display for LoremIpsumUnit {
 
 #[typetag::serde(name = "lorem")]
 impl FakeDataProducer for LoremIpsumFakeData {
-    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        _original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         Ok(match self.unit {
             LoremIpsumUnit::Words => {
                 let words = fake::faker::lorem::en::Words(self.range.clone());

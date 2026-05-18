@@ -8,6 +8,7 @@ use num_bigint::RandBigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueNumber, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
     prompt_utils::prompt_decimal,
@@ -104,7 +105,11 @@ impl NumberRange {
 
 #[typetag::serde(name = "number")]
 impl FakeDataProducer for NumberProducer {
-    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        _original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         let value = self.range.fake()?;
         Ok(DataValue::Number(value))
     }

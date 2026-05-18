@@ -2,6 +2,7 @@ use inquire::{Text, prompt_confirmation};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    ctx::ProducerCtx,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory, number::NumberRange},
 };
@@ -65,7 +66,11 @@ pub struct NumberStringProducer {
 
 #[typetag::serde(name = "number_string")]
 impl FakeDataProducer for NumberStringProducer {
-    fn produce_fake(&self, _original_value: DataValueRef<'_>) -> eyre::Result<DataValue> {
+    fn produce_fake(
+        &self,
+        _original_value: DataValueRef<'_>,
+        _ctx: &ProducerCtx,
+    ) -> eyre::Result<DataValue> {
         let value = self.range.fake()?;
         let mut string_value: String = value.into();
 

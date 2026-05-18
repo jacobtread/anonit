@@ -259,7 +259,7 @@ pub fn json_update_data(
                 let existing_value_ref = DataValueRef::try_from(&*item.value)?;
 
                 let new_value = faker_data
-                    .produce_fake(existing_value_ref)
+                    .produce_fake(existing_value_ref, &data.ctx)
                     .context("failed to generate new value")?;
 
                 let json_value: serde_json::Value = new_value.try_into()?;

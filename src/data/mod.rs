@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{config::Config, data::key::PathKey};
+use crate::{config::Config, ctx::ProducerCtx, data::key::PathKey};
 
 pub mod json;
 pub mod key;
@@ -17,4 +17,7 @@ pub struct UpdateStructureData {
 
     /// Existing mapping data to use
     pub existing_output_mapping: Option<HashMap<serde_json::Value, serde_json::Value>>,
+
+    /// Producer context data
+    pub ctx: ProducerCtx,
 }
