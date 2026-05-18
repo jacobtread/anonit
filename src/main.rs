@@ -91,8 +91,7 @@ fn main() -> eyre::Result<()> {
     }
 
     let mut data = UpdateStructureData {
-        mappings: config.mapping,
-        output_keys: config.output,
+        config,
         output_mapping,
         existing_output_mapping: flat_input_mapping_data,
     };

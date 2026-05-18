@@ -1,3 +1,10 @@
+use crate::{
+    data::{key::PathKey, value::DataValueItem},
+    fake::{FakeDataProducer, FakeDataProducerFactory, prompt_fake_data_type},
+};
+use eyre::Context;
+use inquire::prompt_confirmation;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -5,19 +12,14 @@ use std::{
     sync::Arc,
 };
 
-use eyre::Context;
-use inquire::prompt_confirmation;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    data::{key::PathKey, value::DataValueItem},
-    fake::{FakeDataProducer, FakeDataProducerFactory, prompt_fake_data_type},
-};
-
 #[derive(Serialize, Deserialize)]
 pub struct Config {
+    /// Mapping from keys to producers
     pub mapping: HashMap<Arc<PathKey>, Box<dyn FakeDataProducer>>,
+    /// Keys that will produce outputs
     pub output: HashSet<Arc<PathKey>>,
+    /// Default producer for unknown keys
+    pub default: Option<Box<dyn FakeDataProducer>>,
 }
 
 impl Config {
@@ -58,6 +60,10 @@ impl Config {
             }
         }
 
-        Ok(Config { mapping, output })
+        Ok(Config {
+            mapping,
+            output,
+            default: None,
+        })
     }
 }

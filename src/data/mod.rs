@@ -1,9 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
-use crate::{data::key::PathKey, fake::FakeDataProducer};
+use crate::{config::Config, data::key::PathKey};
 
 pub mod json;
 pub mod key;
@@ -12,8 +9,12 @@ pub mod value;
 pub type OutputMappingMap = HashMap<Arc<PathKey>, HashMap<serde_json::Value, serde_json::Value>>;
 
 pub struct UpdateStructureData {
-    pub mappings: HashMap<Arc<PathKey>, Box<dyn FakeDataProducer>>,
-    pub output_keys: HashSet<Arc<PathKey>>,
+    /// Configuration
+    pub config: Config,
+
+    /// Mapping data produced from processing the structure
     pub output_mapping: OutputMappingMap,
+
+    /// Existing mapping data to use
     pub existing_output_mapping: Option<HashMap<serde_json::Value, serde_json::Value>>,
 }

@@ -250,8 +250,10 @@ pub fn json_update_data(
                 }
 
                 let faker_data = data
-                    .mappings
+                    .config
+                    .mapping
                     .get(key)
+                    .or(data.config.default.as_ref())
                     .ok_or(eyre::eyre!("item was missing from structure mapping"))?;
 
                 let existing_value_ref = DataValueRef::try_from(&*item.value)?;
@@ -263,7 +265,7 @@ pub fn json_update_data(
                 let json_value: serde_json::Value = new_value.try_into()?;
 
                 // Store the updated value
-                if data.output_keys.contains(key) {
+                if data.config.output.contains(key) {
                     let mapping = data.output_mapping.entry(key.clone()).or_default();
                     mapping.insert(item.value.clone(), json_value.clone());
                 }
