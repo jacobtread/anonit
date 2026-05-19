@@ -101,6 +101,17 @@ pub fn fake_data_registry() -> Vec<Box<dyn FakeDataProducerFactory>> {
         Box::new(number::NumberFakeDataFactory),
         Box::new(name::NameFakeDataFactory),
         Box::new(number_string::NumberStringFakeDataFactory),
+        // TODO: Future formats
+        // - Address (Street, city/state/postcode)
+        // - GPS coordinates
+        // - Phone numbers
+        // - Dates
+        // - Currency (Various currency formats like accounting format)
+        // - URL
+        // - IP Address
+        // - Hashes
+        // - Masking (Partially mask values)
+        // - Format preserving (Preserve value format while randomizing the values)
     ]
 }
 
@@ -126,6 +137,8 @@ pub fn prompt_fake_data_type<'a>(
             factory: factory.as_ref(),
         })
         .collect();
+
+    // TODO: Guessing most likely type based on the existing item
 
     let key = item.key.to_string();
     let message = format!("What type should \"{key}\" be?");
