@@ -17,9 +17,9 @@ use crate::{
 
 use super::FakeDataProducer;
 
-pub struct NameProducerFactory;
+pub struct NameFakeDataFactory;
 
-impl FakeDataProducerFactory for NameProducerFactory {
+impl FakeDataProducerFactory for NameFakeDataFactory {
     fn name(&self) -> String {
         "Name".to_owned()
     }
@@ -41,12 +41,12 @@ impl FakeDataProducerFactory for NameProducerFactory {
             None => return Ok(None),
         };
 
-        Ok(Some(Box::new(NameProducer { ty })))
+        Ok(Some(Box::new(NameFakeData { ty })))
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NameProducer {
+pub struct NameFakeData {
     #[serde(rename = "style")]
     ty: NameStyle,
 }
@@ -64,7 +64,7 @@ pub enum NameStyle {
 }
 
 #[typetag::serde(name = "name")]
-impl FakeDataProducer for NameProducer {
+impl FakeDataProducer for NameFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,

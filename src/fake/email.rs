@@ -7,9 +7,9 @@ use crate::{
     fake::{FakeDataProducer, FakeDataProducerFactory},
 };
 
-pub struct EmailFakeDataProducerFactory;
+pub struct EmailFakeDateFactory;
 
-impl FakeDataProducerFactory for EmailFakeDataProducerFactory {
+impl FakeDataProducerFactory for EmailFakeDateFactory {
     fn name(&self) -> String {
         "Email".to_owned()
     }

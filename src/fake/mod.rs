@@ -1,36 +1,33 @@
-use std::{fmt::Display, rc::Rc};
-
-use inquire::Select;
-use mockall::automock;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::{
-        email::EmailFakeDataProducerFactory, lorem::LoremIpsumFakeDataFactory,
-        name::NameProducerFactory, number::NumberProducerFactory,
-        number_string::NumberStringProducerFactory, uuid::UuidFakeDataFactory,
-        wordlist::WordlistFakeDataFactory,
-    },
 };
+use inquire::Select;
+use mockall::automock;
+use serde::Serialize;
+use std::{fmt::Display, rc::Rc};
 
-mod email;
-mod lorem;
-mod name;
-mod number;
-mod number_string;
-mod uuid;
-mod wordlist;
+pub mod email;
+pub mod ignore;
+pub mod lorem;
+pub mod name;
+pub mod number;
+pub mod number_string;
+pub mod uuid;
+pub mod wordlist;
 
+/// Factory for producing [FakeDataProducer] instances by prompting the
+/// user for the fields required to create the producer
 #[automock]
 pub trait FakeDataProducerFactory {
-    /// Getter for the name of the producer
+    /// Getter for the name of the producer to show in the list
+    /// of producer
     fn name(&self) -> String;
 
-    /// Check for whether the producer is allowed to be used with
-    /// the provided item
-    fn is_allowed_for<'i, 'd>(&self, _item: &'i DataValueItem<'d>) -> bool {
+    /// Check if the attached [FakeDataProducer] this factory produces
+    /// can support the provided `item` type
+    #[allow(unused_variables)]
+    fn is_allowed_for<'i, 'd>(&self, item: &'i DataValueItem<'d>) -> bool {
         true
     }
 
@@ -44,13 +41,16 @@ pub trait FakeDataProducerFactory {
     ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>>;
 }
 
+/// Producer of fake values
 #[typetag::serde(tag = "type")]
 #[automock]
 pub trait FakeDataProducer {
+    /// Produce a fake data value based on the provided `original_value`
+    /// from the original source
     fn produce_fake<'i, 'd>(
         &self,
         original_value: DataValueRef<'d>,
-        _ctx: &'i mut ContextData,
+        ctx: &'i mut ContextData,
     ) -> eyre::Result<DataValue>;
 
     /// Check whether the type can be used in output mappings
@@ -66,17 +66,17 @@ impl<F: FakeDataProducer + Serialize> FakeDataProducer for Rc<F> {
         original_value: DataValueRef<'d>,
         ctx: &'i mut ContextData,
     ) -> eyre::Result<DataValue> {
-        F::produce_fake(&self, original_value, ctx)
+        F::produce_fake(self, original_value, ctx)
     }
 
     #[doc(hidden)]
     fn typetag_name(&self) -> &'static str {
-        F::typetag_name(&self)
+        F::typetag_name(self)
     }
 
     #[doc(hidden)]
     fn typetag_deserialize(&self) {
-        F::typetag_deserialize(&self);
+        F::typetag_deserialize(self);
     }
 }
 
@@ -87,50 +87,20 @@ impl Serialize for MockFakeDataProducer {
     where
         S: serde::Serializer,
     {
-        IgnoreProducer::serialize(&IgnoreProducer, serializer)
-    }
-}
-
-struct IgnoreProducerFactory;
-
-impl FakeDataProducerFactory for IgnoreProducerFactory {
-    fn name(&self) -> String {
-        "Ignore".to_owned()
-    }
-
-    fn prompt(
-        &self,
-        _item: &DataValueItem,
-        _ctx: &mut ContextData,
-    ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
-        Ok(Some(Box::new(IgnoreProducer)))
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct IgnoreProducer;
-
-#[typetag::serde(name = "ignore")]
-impl FakeDataProducer for IgnoreProducer {
-    fn produce_fake(
-        &self,
-        original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
-    ) -> eyre::Result<DataValue> {
-        Ok(original_value.into())
+        ignore::IgnoreFakeData::serialize(&ignore::IgnoreFakeData, serializer)
     }
 }
 
 pub fn fake_data_registry() -> Vec<Box<dyn FakeDataProducerFactory>> {
     vec![
-        Box::new(IgnoreProducerFactory),
-        Box::new(LoremIpsumFakeDataFactory),
-        Box::new(UuidFakeDataFactory),
-        Box::new(WordlistFakeDataFactory),
-        Box::new(EmailFakeDataProducerFactory),
-        Box::new(NumberProducerFactory),
-        Box::new(NameProducerFactory),
-        Box::new(NumberStringProducerFactory),
+        Box::new(ignore::IgnoreFakeDataFactory),
+        Box::new(lorem::LoremIpsumFakeDataFactory),
+        Box::new(uuid::UuidFakeDataFactory),
+        Box::new(wordlist::WordlistFakeDataFactory),
+        Box::new(email::EmailFakeDateFactory),
+        Box::new(number::NumberFakeDataFactory),
+        Box::new(name::NameFakeDataFactory),
+        Box::new(number_string::NumberStringFakeDataFactory),
     ]
 }
 

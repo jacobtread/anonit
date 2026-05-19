@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use anonit::{
     config::Config,
     data::{UpdateStructureData, value::DataValue},
-    fake::{FakeDataProducer, IgnoreProducer, MockFakeDataProducer},
+    fake::{FakeDataProducer, MockFakeDataProducer, ignore::IgnoreFakeData},
     process_json_file,
 };
 
@@ -71,7 +71,7 @@ fn test_internal_mappings_enabled() {
 
     let config = Config {
         mapping,
-        default: Some(Box::new(IgnoreProducer)),
+        default: Some(Box::new(IgnoreFakeData)),
         internal_mapping: true,
         ..Default::default()
     };

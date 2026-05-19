@@ -14,9 +14,9 @@ use crate::{
     prompt_utils::prompt_decimal,
 };
 
-pub struct NumberProducerFactory;
+pub struct NumberFakeDataFactory;
 
-impl FakeDataProducerFactory for NumberProducerFactory {
+impl FakeDataProducerFactory for NumberFakeDataFactory {
     fn name(&self) -> String {
         "Number".to_owned()
     }
@@ -35,12 +35,12 @@ impl FakeDataProducerFactory for NumberProducerFactory {
             None => return Ok(None),
         };
 
-        Ok(Some(Box::new(NumberProducer { range })))
+        Ok(Some(Box::new(NumberFakeData { range })))
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NumberProducer {
+pub struct NumberFakeData {
     range: NumberRange,
 }
 
@@ -105,7 +105,7 @@ impl NumberRange {
 }
 
 #[typetag::serde(name = "number")]
-impl FakeDataProducer for NumberProducer {
+impl FakeDataProducer for NumberFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,

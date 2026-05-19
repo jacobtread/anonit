@@ -7,9 +7,9 @@ use crate::{
     fake::{FakeDataProducer, FakeDataProducerFactory, number::NumberRange},
 };
 
-pub struct NumberStringProducerFactory;
+pub struct NumberStringFakeDataFactory;
 
-impl FakeDataProducerFactory for NumberStringProducerFactory {
+impl FakeDataProducerFactory for NumberStringFakeDataFactory {
     fn name(&self) -> String {
         "Number (String)".to_owned()
     }
@@ -50,7 +50,7 @@ impl FakeDataProducerFactory for NumberStringProducerFactory {
             None
         };
 
-        Ok(Some(Box::new(NumberStringProducer {
+        Ok(Some(Box::new(NumberStringFakeData {
             range,
             prefix,
             suffix,
@@ -59,14 +59,14 @@ impl FakeDataProducerFactory for NumberStringProducerFactory {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NumberStringProducer {
+pub struct NumberStringFakeData {
     range: NumberRange,
     prefix: Option<String>,
     suffix: Option<String>,
 }
 
 #[typetag::serde(name = "number_string")]
-impl FakeDataProducer for NumberStringProducer {
+impl FakeDataProducer for NumberStringFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
