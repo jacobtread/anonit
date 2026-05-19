@@ -239,12 +239,8 @@ pub fn json_update_data(
                     None => eyre::bail!("value item should always have a key"),
                 };
 
-                // Override from existing data
-                if let Some(output_override) = data
-                    .existing_output_mapping
-                    .as_ref()
-                    .and_then(|map| map.get(item.value))
-                {
+                // Check for mapping to an existing generated value
+                if let Some(output_override) = data.mapping.get(item.value) {
                     *item.value = output_override.clone();
                     continue;
                 }
@@ -268,6 +264,11 @@ pub fn json_update_data(
                 if data.config.output.contains(key) {
                     let mapping = data.output_mapping.entry(key.clone()).or_default();
                     mapping.insert(item.value.clone(), json_value.clone());
+                }
+
+                // Map the value in the current mapping data if allowed to build internal mapping
+                if data.internal_mapping {
+                    data.mapping.insert(item.value.clone(), json_value.clone());
                 }
 
                 *item.value = json_value;

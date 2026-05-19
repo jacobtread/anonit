@@ -51,6 +51,15 @@ struct Args {
     /// Optional output file to store the generated
     #[arg(long)]
     config_output: Option<PathBuf>,
+
+    /// Whether to allow mappings of redacted fields to be built
+    /// and used within the current input set
+    ///
+    /// Helps use cases where in multiple parts of a file you have
+    /// an ID that refers to a user and want all instances of the
+    /// ID to be consistent
+    #[arg(long, default_value = "true")]
+    internal_mapping: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -69,8 +78,9 @@ fn main() -> eyre::Result<()> {
         None => None,
     };
 
-    let flat_input_mapping_data: Option<HashMap<serde_json::Value, serde_json::Value>> =
-        input_mapping_data.map(|mapping| mapping.into_values().flatten().collect());
+    let mapping: HashMap<serde_json::Value, serde_json::Value> = input_mapping_data
+        .map(|mapping| mapping.into_values().flatten().collect())
+        .unwrap_or_default();
 
     let config = args.config.map(Config::try_from_file).transpose()?;
     let structure = json_data_value_items(&input_data)?;
@@ -96,8 +106,9 @@ fn main() -> eyre::Result<()> {
     let mut data = UpdateStructureData {
         config,
         output_mapping,
-        existing_output_mapping: flat_input_mapping_data,
+        mapping,
         ctx,
+        internal_mapping: args.internal_mapping,
     };
 
     let mut output = input_data.clone();

@@ -12,12 +12,16 @@ pub struct UpdateStructureData {
     /// Configuration
     pub config: Config,
 
-    /// Mapping data produced from processing the structure
-    pub output_mapping: OutputMappingMap,
-
-    /// Existing mapping data to use
-    pub existing_output_mapping: Option<HashMap<serde_json::Value, serde_json::Value>>,
+    /// Mapping data to use for values that should be replaced
+    /// with a specific value if found
+    pub mapping: HashMap<serde_json::Value, serde_json::Value>,
 
     /// Producer context data
     pub ctx: ContextData,
+
+    /// Mapping data produced from processing the structure
+    pub output_mapping: OutputMappingMap,
+
+    /// Whether to allow internal mappings to be produced
+    pub internal_mapping: bool,
 }
