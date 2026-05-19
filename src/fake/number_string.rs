@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::{FakeDataProducer, FakeDataProducerFactory, number::NumberRange},
+    fake::{FakeDataProducer, FakeDataProducerData, FakeDataProducerFactory, number::NumberRange},
 };
 
 pub struct NumberStringFakeDataFactory;
@@ -70,9 +70,9 @@ impl FakeDataProducer for NumberStringFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
+        data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
-        let value = self.range.fake()?;
+        let value = self.range.fake(&mut data.rng_08)?;
         let mut string_value: String = value.into();
 
         if let Some(prefix) = self.prefix.as_ref() {

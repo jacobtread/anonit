@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueNumber, DataValueRef},
-    fake::{FakeDataProducer, FakeDataProducerFactory},
+    fake::{FakeDataProducer, FakeDataProducerData, FakeDataProducerFactory},
     prompt_utils::prompt_decimal,
 };
 
@@ -88,16 +88,15 @@ impl NumberRange {
         Ok(Some(range))
     }
 
-    pub fn fake(&self) -> eyre::Result<DataValueNumber> {
-        let mut rng = rand08::thread_rng();
+    pub fn fake(&self, rng: &mut impl RandBigInt) -> eyre::Result<DataValueNumber> {
         match self {
             NumberRange::Integer { min, max } => {
                 ensure!(min <= max, "min value must not be greater than max");
-                let value = random_bigint_between(&mut rng, min, max);
+                let value = random_bigint_between(rng, min, max);
                 Ok(DataValueNumber::new(value.to_string()))
             }
             NumberRange::Decimal { min, max, scale } => {
-                let value = random_decimal_between(&mut rng, min, max, *scale)?;
+                let value = random_decimal_between(rng, min, max, *scale)?;
                 Ok(DataValueNumber::new(value.to_string()))
             }
         }
@@ -109,9 +108,9 @@ impl FakeDataProducer for NumberFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
+        data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
-        let value = self.range.fake()?;
+        let value = self.range.fake(&mut data.rng_08)?;
         Ok(DataValue::Number(value))
     }
 }

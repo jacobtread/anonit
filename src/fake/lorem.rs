@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::{FakeDataProducer, FakeDataProducerFactory},
+    fake::{FakeDataProducer, FakeDataProducerData, FakeDataProducerFactory},
     prompt_utils::prompt_range,
 };
 
@@ -84,22 +84,22 @@ impl FakeDataProducer for LoremIpsumFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
+        data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
         Ok(match self.unit {
             LoremIpsumUnit::Words => {
                 let words = fake::faker::lorem::en::Words(self.range.clone());
-                let fake: Vec<String> = words.fake();
+                let fake: Vec<String> = words.fake_with_rng(&mut data.rng);
                 DataValue::String(fake.join(" "))
             }
             LoremIpsumUnit::Sentences => {
                 let words = fake::faker::lorem::en::Sentence(self.range.clone());
-                let fake = words.fake();
+                let fake = words.fake_with_rng(&mut data.rng);
                 DataValue::String(fake)
             }
             LoremIpsumUnit::Paragraphs => {
                 let words = fake::faker::lorem::en::Paragraph(self.range.clone());
-                let fake = words.fake();
+                let fake = words.fake_with_rng(&mut data.rng);
                 DataValue::String(fake)
             }
         })

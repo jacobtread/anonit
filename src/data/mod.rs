@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{config::Config, ctx::ContextData, data::key::PathKey};
+use crate::{config::Config, data::key::PathKey};
 
 pub mod json;
 pub mod key;
@@ -15,9 +15,6 @@ pub struct UpdateStructureData {
     /// Mapping data to use for values that should be replaced
     /// with a specific value if found
     pub mapping: HashMap<serde_json::Value, serde_json::Value>,
-
-    /// Producer context data
-    pub ctx: ContextData,
 
     /// Mapping data produced from processing the structure
     pub output_mapping: OutputMappingMap,

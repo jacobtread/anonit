@@ -94,7 +94,6 @@ fn main() -> eyre::Result<()> {
         config,
         output_mapping,
         mapping,
-        ctx: Default::default(),
     };
 
     let output = process_json_file(input_data, &mut data)?;

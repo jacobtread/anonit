@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::{FakeDataProducer, FakeDataProducerFactory},
+    fake::{FakeDataProducer, FakeDataProducerData, FakeDataProducerFactory},
 };
 
 pub struct UuidFakeDataFactory;
@@ -69,14 +69,14 @@ pub enum UuidVersion {
 }
 
 impl UuidVersion {
-    pub fn fake(&self) -> DataValue {
+    pub fn fake(&self, rng: &mut impl rand::Rng) -> DataValue {
         let value = match self {
-            UuidVersion::V1 => UUIDv1.fake(),
-            UuidVersion::V3 => UUIDv3.fake(),
-            UuidVersion::V4 => UUIDv4.fake(),
-            UuidVersion::V5 => UUIDv5.fake(),
-            UuidVersion::V6 => UUIDv6.fake(),
-            UuidVersion::V7 => UUIDv7.fake(),
+            UuidVersion::V1 => UUIDv1.fake_with_rng(rng),
+            UuidVersion::V3 => UUIDv3.fake_with_rng(rng),
+            UuidVersion::V4 => UUIDv4.fake_with_rng(rng),
+            UuidVersion::V5 => UUIDv5.fake_with_rng(rng),
+            UuidVersion::V6 => UUIDv6.fake_with_rng(rng),
+            UuidVersion::V7 => UUIDv7.fake_with_rng(rng),
         };
 
         DataValue::String(value)
@@ -106,9 +106,9 @@ impl FakeDataProducer for UuidFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
+        data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
-        Ok(self.version.fake())
+        Ok(self.version.fake(&mut data.rng))
     }
 
     fn is_allowed_output(&self) -> bool {

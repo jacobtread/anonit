@@ -41,6 +41,15 @@ pub trait FakeDataProducerFactory {
     ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>>;
 }
 
+pub struct FakeDataProducerData {
+    /// Random number generator
+    pub rng: rand::rngs::StdRng,
+    /// Legacy rand 0.8.0 for random bigdecimal library support
+    pub rng_08: rand08::rngs::StdRng,
+    /// Context access for storing and accessing context data
+    pub ctx: ContextData,
+}
+
 /// Producer of fake values
 #[typetag::serde(tag = "type")]
 #[automock]
@@ -49,8 +58,8 @@ pub trait FakeDataProducer {
     /// from the original source
     fn produce_fake<'i, 'd>(
         &self,
-        original_value: DataValueRef<'d>,
-        ctx: &'i mut ContextData,
+        original_value: DataValueRef<'i>,
+        data: &'d mut FakeDataProducerData,
     ) -> eyre::Result<DataValue>;
 
     /// Check whether the type can be used in output mappings
@@ -63,10 +72,10 @@ pub trait FakeDataProducer {
 impl<F: FakeDataProducer + Serialize> FakeDataProducer for Rc<F> {
     fn produce_fake<'i, 'd>(
         &self,
-        original_value: DataValueRef<'d>,
-        ctx: &'i mut ContextData,
+        original_value: DataValueRef<'i>,
+        data: &'d mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
-        F::produce_fake(self, original_value, ctx)
+        F::produce_fake(self, original_value, data)
     }
 
     #[doc(hidden)]

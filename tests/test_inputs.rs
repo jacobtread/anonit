@@ -80,7 +80,6 @@ fn test_internal_mappings_enabled() {
         config,
         output_mapping: Default::default(),
         mapping: Default::default(),
-        ctx: Default::default(),
     };
 
     let input_data: serde_json::Value = serde_json::from_str(sample).unwrap();

@@ -1,11 +1,11 @@
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::{FakeDataProducer, FakeDataProducerFactory},
+    fake::{FakeDataProducer, FakeDataProducerData, FakeDataProducerFactory},
     prompt_utils::{prompt_file_path, prompt_range},
 };
 use itertools::Itertools;
-use rand::{random_range, seq::IndexedRandom};
+use rand::{RngExt, seq::IndexedRandom};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::read_to_string, path::PathBuf};
 
@@ -62,11 +62,14 @@ struct WordlistCache {
 }
 
 impl WordlistCache {
-    fn generate(&mut self, path: PathBuf, amount: usize) -> eyre::Result<String> {
-        let mut rng = rand::rng();
-
+    fn generate(
+        &mut self,
+        rng: &mut impl rand::Rng,
+        path: PathBuf,
+        amount: usize,
+    ) -> eyre::Result<String> {
         if let Some(value) = self.cache.get(&path) {
-            return Ok(value.sample(&mut rng, amount).join(" "));
+            return Ok(value.sample(rng, amount).join(" "));
         }
 
         let file = File::open(&path)?;
@@ -78,7 +81,7 @@ impl WordlistCache {
             .map(|value| value.to_owned())
             .collect();
 
-        let value = words.sample(&mut rng, amount).join(" ");
+        let value = words.sample(rng, amount).join(" ");
         self.cache.insert(path, words);
         Ok(value)
     }
@@ -89,16 +92,16 @@ impl FakeDataProducer for WordlistFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        ctx: &mut ContextData,
+        data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
-        let wordlist = ctx.get_or_default::<WordlistCache>();
+        let wordlist = data.ctx.get_or_default::<WordlistCache>();
 
         let amount = if self.amount.is_empty() {
             self.amount.start
         } else {
-            random_range(self.amount.clone())
+            data.rng.random_range(self.amount.clone())
         };
-        let value = wordlist.generate(self.file_path.clone(), amount)?;
+        let value = wordlist.generate(&mut data.rng, self.file_path.clone(), amount)?;
         Ok(DataValue::String(value))
     }
 }

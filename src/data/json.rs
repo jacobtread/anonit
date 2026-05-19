@@ -2,10 +2,13 @@ use eyre::Context;
 use thiserror::Error;
 
 use super::key::PathKeyItem;
-use crate::data::{
-    UpdateStructureData,
-    key::PathKey,
-    value::{DataValue, DataValueItem, DataValueNumber, DataValueNumberRef, DataValueRef},
+use crate::{
+    data::{
+        UpdateStructureData,
+        key::PathKey,
+        value::{DataValue, DataValueItem, DataValueNumber, DataValueNumberRef, DataValueRef},
+    },
+    fake::FakeDataProducerData,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -225,6 +228,7 @@ impl<'a> Iterator for JsonWalkIterMut<'a> {
 pub fn json_update_data(
     value: &mut serde_json::Value,
     data: &mut UpdateStructureData,
+    producer_data: &mut FakeDataProducerData,
 ) -> eyre::Result<()> {
     let iter = JsonWalkIterMut::new(value)?;
 
@@ -260,7 +264,7 @@ pub fn json_update_data(
                 let existing_value_ref = DataValueRef::try_from(&*item.value)?;
 
                 let new_value = faker_data
-                    .produce_fake(existing_value_ref, &mut data.ctx)
+                    .produce_fake(existing_value_ref, producer_data)
                     .context("failed to generate new value")?;
 
                 let json_value: serde_json::Value = new_value.try_into()?;

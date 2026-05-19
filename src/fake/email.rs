@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::{FakeDataProducer, FakeDataProducerFactory},
+    fake::{FakeDataProducer, FakeDataProducerData, FakeDataProducerFactory},
 };
 
 pub struct EmailFakeDateFactory;
@@ -35,9 +35,9 @@ impl FakeDataProducer for EmailFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
+        data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
-        let value = SafeEmail().fake();
+        let value = SafeEmail().fake_with_rng(&mut data.rng);
         Ok(DataValue::String(value))
     }
 }

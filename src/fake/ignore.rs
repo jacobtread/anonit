@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::{FakeDataProducer, FakeDataProducerFactory},
+    fake::{FakeDataProducer, FakeDataProducerData, FakeDataProducerFactory},
 };
 
 pub struct IgnoreFakeDataFactory;
@@ -30,7 +30,7 @@ impl FakeDataProducer for IgnoreFakeData {
     fn produce_fake(
         &self,
         original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
+        _data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
         Ok(original_value.into())
     }

@@ -12,7 +12,7 @@ use strum::{Display, VariantArray};
 use crate::{
     ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
-    fake::FakeDataProducerFactory,
+    fake::{FakeDataProducerData, FakeDataProducerFactory},
 };
 
 use super::FakeDataProducer;
@@ -68,16 +68,16 @@ impl FakeDataProducer for NameFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &mut ContextData,
+        data: &mut FakeDataProducerData,
     ) -> eyre::Result<DataValue> {
         let value = match &self.ty {
-            NameStyle::Username => Username().fake(),
-            NameStyle::FirstName => FirstName().fake(),
-            NameStyle::LastName => LastName().fake(),
-            NameStyle::Name => Name().fake(),
-            NameStyle::NameWithTitle => NameWithTitle().fake(),
-            NameStyle::Suffix => Suffix().fake(),
-            NameStyle::Title => Title().fake(),
+            NameStyle::Username => Username().fake_with_rng(&mut data.rng),
+            NameStyle::FirstName => FirstName().fake_with_rng(&mut data.rng),
+            NameStyle::LastName => LastName().fake_with_rng(&mut data.rng),
+            NameStyle::Name => Name().fake_with_rng(&mut data.rng),
+            NameStyle::NameWithTitle => NameWithTitle().fake_with_rng(&mut data.rng),
+            NameStyle::Suffix => Suffix().fake_with_rng(&mut data.rng),
+            NameStyle::Title => Title().fake_with_rng(&mut data.rng),
         };
 
         Ok(DataValue::String(value))
