@@ -21,7 +21,4 @@ pub struct UpdateStructureData {
 
     /// Mapping data produced from processing the structure
     pub output_mapping: OutputMappingMap,
-
-    /// Whether to allow internal mappings to be produced
-    pub internal_mapping: bool,
 }

@@ -1,0 +1,34 @@
+{
+    "_description": "This is a sample file which has data that references IDs within the same file",
+    "Posts": [
+        {
+            "Id": "test-post",
+            "Text": "This is an example post structure which contains an author which is later referenced as a User",
+            "Author": "test-user-1",
+            "Comments": [
+                {
+                    "Id": "test-comment-1",
+                    "Text": "This is an example comment structure",
+                    "Parent": null,
+                    "Author": "test-user-1"
+                },
+                {
+                    "Id": "test-comment-2",
+                    "Text": "This comment refers to the 'Id' of a comment which is the previous comment in this list",
+                    "Parent": "test-comment-1",
+                    "Author": "test-user-1"
+                }
+            ]
+        }
+    ],
+    "Users": [
+        {
+            "Id": "test-user-2",
+            "Username": "Other User"
+        },
+        {
+            "Id": "test-user-1",
+            "Username": "Poster"
+        }
+    ]
+}

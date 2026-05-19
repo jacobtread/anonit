@@ -14,6 +14,7 @@ use std::{
 };
 
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
     /// Mapping from keys to producers
     pub mapping: HashMap<Arc<PathKey>, Box<dyn FakeDataProducer>>,
@@ -21,6 +22,29 @@ pub struct Config {
     pub output: HashSet<Arc<PathKey>>,
     /// Default producer for unknown keys
     pub default: Option<Box<dyn FakeDataProducer>>,
+
+    /// Whether to maintain null values
+    pub maintain_null: bool,
+
+    /// Whether to allow mappings of redacted fields to be built
+    /// and used within the current input set
+    ///
+    /// Helps use cases where in multiple parts of a file you have
+    /// an ID that refers to a user and want all instances of the
+    /// ID to be consistent
+    pub internal_mapping: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            mapping: Default::default(),
+            output: Default::default(),
+            default: Default::default(),
+            maintain_null: true,
+            internal_mapping: true,
+        }
+    }
 }
 
 impl Config {
@@ -62,10 +86,15 @@ impl Config {
             }
         }
 
+        let maintain_null = prompt_confirmation("Would you like to leave null values as is?")?;
+        let internal_mapping = prompt_confirmation("Would you like to allow internal mapping?")?;
+
         Ok(Config {
             mapping,
             output,
             default: None,
+            maintain_null,
+            internal_mapping,
         })
     }
 }

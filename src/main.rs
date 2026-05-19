@@ -1,20 +1,17 @@
-use crate::{
+use anonit::{
     config::Config,
-    ctx::ContextData,
-    data::{
-        OutputMappingMap, UpdateStructureData,
-        json::{json_data_value_items, json_update_data},
-    },
+    data::{OutputMappingMap, UpdateStructureData, json::json_data_value_items},
     fake::fake_data_registry,
+    process_json_file,
 };
 use clap::Parser;
 use eyre::Context;
 use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
-mod config;
-mod ctx;
-mod data;
-mod fake;
+pub mod config;
+pub mod ctx;
+pub mod data;
+pub mod fake;
 mod prompt_utils;
 
 /// Data anonymizing tool.
@@ -51,15 +48,6 @@ struct Args {
     /// Optional output file to store the generated
     #[arg(long)]
     config_output: Option<PathBuf>,
-
-    /// Whether to allow mappings of redacted fields to be built
-    /// and used within the current input set
-    ///
-    /// Helps use cases where in multiple parts of a file you have
-    /// an ID that refers to a user and want all instances of the
-    /// ID to be consistent
-    #[arg(long, default_value = "true")]
-    internal_mapping: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -102,17 +90,14 @@ fn main() -> eyre::Result<()> {
         file.flush().context("failed to flush file")?;
     }
 
-    let ctx = ContextData::default();
     let mut data = UpdateStructureData {
         config,
         output_mapping,
         mapping,
-        ctx,
-        internal_mapping: args.internal_mapping,
+        ctx: Default::default(),
     };
 
-    let mut output = input_data.clone();
-    json_update_data(&mut output, &mut data)?;
+    let output = process_json_file(input_data, &mut data)?;
 
     let serialized = serde_json::to_string_pretty(&output)?;
     if let Some(output) = args.output {

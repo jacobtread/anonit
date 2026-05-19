@@ -229,6 +229,11 @@ pub fn json_update_data(
     let iter = JsonWalkIterMut::new(value)?;
 
     for item in iter {
+        // Skip null if we are maintaining null
+        if item.value.is_null() && data.config.maintain_null {
+            continue;
+        }
+
         match item.value {
             serde_json::Value::Null
             | serde_json::Value::Bool(_)
@@ -267,7 +272,7 @@ pub fn json_update_data(
                 }
 
                 // Map the value in the current mapping data if allowed to build internal mapping
-                if data.internal_mapping {
+                if data.config.internal_mapping {
                     data.mapping.insert(item.value.clone(), json_value.clone());
                 }
 

@@ -46,6 +46,7 @@ num-bigint = { version = "0.4.6", features = ["serde", "rand"] }
 
 # Legacy rand version for working with num-bigint
 rand08 = { package = "rand", version = "0.8" }
+mockall = "0.14.0"
 
 # The profile that 'dist' will build with
 [profile.dist]
