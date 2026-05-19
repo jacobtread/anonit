@@ -8,7 +8,7 @@ use strum::{Display, VariantArray};
 use uuid::Uuid;
 
 use crate::{
-    ctx::ProducerCtx,
+    ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
 };
@@ -27,6 +27,7 @@ impl FakeDataProducerFactory for UuidFakeDataFactory {
     fn prompt(
         &self,
         item: &DataValueItem,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let unit_options = UuidVersion::VARIANTS.to_vec();
 
@@ -105,7 +106,7 @@ impl FakeDataProducer for UuidFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &ProducerCtx,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<DataValue> {
         Ok(self.version.fake())
     }

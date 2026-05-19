@@ -1,5 +1,5 @@
 use crate::{
-    ctx::ProducerCtx,
+    ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
     prompt_utils::{prompt_file_path, prompt_range},
@@ -7,7 +7,7 @@ use crate::{
 use itertools::Itertools;
 use rand::{random_range, seq::IndexedRandom};
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, fs::File, io::read_to_string, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::read_to_string, path::PathBuf};
 
 pub struct WordlistFakeDataFactory;
 
@@ -23,6 +23,7 @@ impl FakeDataProducerFactory for WordlistFakeDataFactory {
     fn prompt(
         &self,
         _item: &DataValueItem,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let file_path = match prompt_file_path("Enter path to the wordlist file")? {
             Some(value) => value,
@@ -55,38 +56,32 @@ pub struct WordlistFakeData {
 
 // Maintain a in-memory cache of a wordlist file to prevent loading the file
 // for every single fake data generation that requires it
-thread_local! {
-    static WORDLIST_CACHE: RefCell<HashMap<PathBuf, Vec<String>>> = RefCell::new(HashMap::new());
+#[derive(Default)]
+struct WordlistCache {
+    cache: HashMap<PathBuf, Vec<String>>,
 }
 
-fn get_wordlist_or_cache(path: PathBuf, amount: usize) -> eyre::Result<String> {
-    let mut rng = rand::rng();
+impl WordlistCache {
+    fn generate(&mut self, path: PathBuf, amount: usize) -> eyre::Result<String> {
+        let mut rng = rand::rng();
 
-    if let Some(value) = WORDLIST_CACHE.with_borrow(|map| {
-        if let Some(value) = map.get(&path) {
-            return Some(value.sample(&mut rng, amount).join(" "));
+        if let Some(value) = self.cache.get(&path) {
+            return Ok(value.sample(&mut rng, amount).join(" "));
         }
 
-        None
-    }) {
-        return Ok(value);
-    }
+        let file = File::open(&path)?;
+        let content = read_to_string(file)?;
+        let words: Vec<String> = content
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .map(|value| value.to_owned())
+            .collect();
 
-    let file = File::open(&path)?;
-    let content = read_to_string(file)?;
-    let words: Vec<String> = content
-        .lines()
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty())
-        .map(|value| value.to_owned())
-        .collect();
-
-    let value = words.sample(&mut rng, amount).join(" ");
-
-    WORDLIST_CACHE.with_borrow_mut(|map| {
-        map.insert(path, words);
+        let value = words.sample(&mut rng, amount).join(" ");
+        self.cache.insert(path, words);
         Ok(value)
-    })
+    }
 }
 
 #[typetag::serde(name = "wordlist")]
@@ -94,14 +89,16 @@ impl FakeDataProducer for WordlistFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &ProducerCtx,
+        ctx: &mut ContextData,
     ) -> eyre::Result<DataValue> {
+        let wordlist = ctx.get_or_default::<WordlistCache>();
+
         let amount = if self.amount.is_empty() {
             self.amount.start
         } else {
             random_range(self.amount.clone())
         };
-        let value = get_wordlist_or_cache(self.file_path.clone(), amount)?;
+        let value = wordlist.generate(self.file_path.clone(), amount)?;
         Ok(DataValue::String(value))
     }
 }

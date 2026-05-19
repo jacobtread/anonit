@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    ctx::ProducerCtx,
+    ctx::ContextData,
     data::{
         OutputMappingMap, UpdateStructureData,
         json::{json_data_value_items, json_update_data},
@@ -92,7 +92,7 @@ fn main() -> eyre::Result<()> {
         file.flush().context("failed to flush file")?;
     }
 
-    let ctx = ProducerCtx::default();
+    let ctx = ContextData::default();
     let mut data = UpdateStructureData {
         config,
         output_mapping,

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, VariantArray};
 
 use crate::{
-    ctx::ProducerCtx,
+    ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::FakeDataProducerFactory,
 };
@@ -28,7 +28,11 @@ impl FakeDataProducerFactory for NameProducerFactory {
         item.is_any_string_or_null()
     }
 
-    fn prompt(&self, _item: &DataValueItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
+    fn prompt(
+        &self,
+        _item: &DataValueItem,
+        _ctx: &mut ContextData,
+    ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
         let type_options = NameStyle::VARIANTS.to_vec();
         let ty = match Select::new("What type of name would you like?", type_options)
             .prompt_skippable()?
@@ -64,7 +68,7 @@ impl FakeDataProducer for NameProducer {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &ProducerCtx,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<DataValue> {
         let value = match &self.ty {
             NameStyle::Username => Username().fake(),

@@ -1,4 +1,5 @@
 use crate::{
+    ctx::ContextData,
     data::{key::PathKey, value::DataValueItem},
     fake::{FakeDataProducer, FakeDataProducerFactory, prompt_fake_data_type},
 };
@@ -37,10 +38,11 @@ impl Config {
     ) -> eyre::Result<Config> {
         let mut mapping = HashMap::new();
         let mut output = HashSet::new();
+        let mut ctx = ContextData::default();
 
         for item in structure {
             loop {
-                let producer = match prompt_fake_data_type(registry, item)? {
+                let producer = match prompt_fake_data_type(registry, item, &mut ctx)? {
                     Some(value) => value,
                     None => continue,
                 };

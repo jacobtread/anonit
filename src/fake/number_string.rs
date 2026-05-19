@@ -2,7 +2,7 @@ use inquire::{Text, prompt_confirmation};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ctx::ProducerCtx,
+    ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory, number::NumberRange},
 };
@@ -21,6 +21,7 @@ impl FakeDataProducerFactory for NumberStringProducerFactory {
     fn prompt(
         &self,
         _item: &DataValueItem,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let range = match NumberRange::prompt()? {
             Some(value) => value,
@@ -69,7 +70,7 @@ impl FakeDataProducer for NumberStringProducer {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &ProducerCtx,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<DataValue> {
         let value = self.range.fake()?;
         let mut string_value: String = value.into();

@@ -4,7 +4,7 @@ use inquire::Select;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ctx::ProducerCtx,
+    ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{
         email::EmailFakeDataProducerFactory, lorem::LoremIpsumFakeDataFactory,
@@ -35,7 +35,11 @@ pub trait FakeDataProducerFactory {
     /// Prompt the user for any available options and produce the fake data
     /// returning [None] considers the prompting to be cancelled allowing the
     /// user to select another producer
-    fn prompt(&self, item: &DataValueItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>>;
+    fn prompt(
+        &self,
+        item: &DataValueItem,
+        _ctx: &mut ContextData,
+    ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>>;
 }
 
 #[typetag::serde(tag = "type")]
@@ -43,7 +47,7 @@ pub trait FakeDataProducer {
     fn produce_fake(
         &self,
         original_value: DataValueRef<'_>,
-        ctx: &ProducerCtx,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<DataValue>;
 
     /// Check whether the type can be used in output mappings
@@ -59,7 +63,11 @@ impl FakeDataProducerFactory for IgnoreProducerFactory {
         "Ignore".to_owned()
     }
 
-    fn prompt(&self, _item: &DataValueItem) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
+    fn prompt(
+        &self,
+        _item: &DataValueItem,
+        _ctx: &mut ContextData,
+    ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
         Ok(Some(Box::new(IgnoreProducer)))
     }
 }
@@ -72,7 +80,7 @@ impl FakeDataProducer for IgnoreProducer {
     fn produce_fake(
         &self,
         original_value: DataValueRef<'_>,
-        _ctx: &ProducerCtx,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<DataValue> {
         Ok(original_value.into())
     }
@@ -104,6 +112,7 @@ impl<'a> Display for PromptFactoryOption<'a> {
 pub fn prompt_fake_data_type<'a>(
     registry: &'a [Box<dyn FakeDataProducerFactory>],
     item: &DataValueItem,
+    ctx: &mut ContextData,
 ) -> eyre::Result<Option<Box<dyn FakeDataProducer>>> {
     let items: Vec<PromptFactoryOption<'a>> = registry
         .iter()
@@ -116,5 +125,5 @@ pub fn prompt_fake_data_type<'a>(
     let key = item.key.to_string();
     let message = format!("What type should \"{key}\" be?");
     let answer = Select::new(&message, items).prompt()?;
-    answer.factory.prompt(item)
+    answer.factory.prompt(item, ctx)
 }

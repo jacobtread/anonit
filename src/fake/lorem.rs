@@ -5,7 +5,7 @@ use inquire::Select;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ctx::ProducerCtx,
+    ctx::ContextData,
     data::value::{DataValue, DataValueItem, DataValueRef},
     fake::{FakeDataProducer, FakeDataProducerFactory},
     prompt_utils::prompt_range,
@@ -25,6 +25,7 @@ impl FakeDataProducerFactory for LoremIpsumFakeDataFactory {
     fn prompt(
         &self,
         _item: &DataValueItem,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<Option<Box<dyn super::FakeDataProducer>>> {
         let unit_options = vec![
             LoremIpsumUnit::Words,
@@ -83,7 +84,7 @@ impl FakeDataProducer for LoremIpsumFakeData {
     fn produce_fake(
         &self,
         _original_value: DataValueRef<'_>,
-        _ctx: &ProducerCtx,
+        _ctx: &mut ContextData,
     ) -> eyre::Result<DataValue> {
         Ok(match self.unit {
             LoremIpsumUnit::Words => {
